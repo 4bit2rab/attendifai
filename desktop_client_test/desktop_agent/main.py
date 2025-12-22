@@ -1,21 +1,30 @@
 import sys
-from datetime import datetime, time as dtime
-from PyQt5.QtWidgets import QApplication, QMessageBox, QLabel, QVBoxLayout, QWidget
+import requests
+from datetime import datetime, date
+from PyQt5.QtWidgets import (QApplication, QMessageBox, QLabel, QVBoxLayout, QWidget)
 from PyQt5.QtCore import QTimer
 
 from tracker import ActivityTracker
 from tracker_widget import TrackerWindow
 
-# ---- CONFIG ----
-SHIFT_START = dtime(17, 2)
-SHIFT_END = dtime(17, 3)
+
+# ---------------- FETCH SHIFT FROM API ----------------
+def fetch_shift(employee_id):
+    #http://127.0.0.1:9000/shift/{employee_id}-this endpoint created in the backend and works in the port 9000
+    resp = requests.get(f"http://127.0.0.1:9000/shift/{employee_id}")
+    resp.raise_for_status()
+    data = resp.json()
+
+    start = datetime.strptime(data["shift_start"], "%H:%M:%S").time()
+    end = datetime.strptime(data["shift_end"], "%H:%M:%S").time()
+    return start, end
 
 
-def ask_overtime(start_minutes):
-    """Show a dialog if overtime is detected."""
+# ---------------- OVERTIME POPUP ----------------
+def ask_overtime(worked_minutes):
     app = QApplication.instance()
     if not app:
-        raise RuntimeError("QApplication instance not found")
+        raise RuntimeError("QApplication not running")
 
     msg = QMessageBox()
     msg.setWindowTitle("Overtime Detected")
@@ -24,8 +33,8 @@ def ask_overtime(start_minutes):
     layout = QVBoxLayout(container)
 
     info = QLabel(
-        f"You worked {start_minutes} minutes beyond your shift.\n"
-        "Overtime is still running:"
+        f"You worked {worked_minutes} minutes.\n"
+        "Do you want to continue as overtime?"
     )
 
     timer_label = QLabel("00:00")
@@ -39,10 +48,10 @@ def ask_overtime(start_minutes):
 
     start_time = datetime.now()
 
-    # Timer to update overtime duration
     timer = QTimer()
+
     def update_timer():
-        elapsed = (datetime.now() - start_time).seconds
+        elapsed = int((datetime.now() - start_time).total_seconds())
         m, s = divmod(elapsed, 60)
         timer_label.setText(f"{m:02d}:{s:02d}")
 
@@ -52,68 +61,74 @@ def ask_overtime(start_minutes):
     result = msg.exec_()
     timer.stop()
 
-    return result == QMessageBox.Yes, (datetime.now() - start_time).seconds
+    return result == QMessageBox.Yes
 
 
+# ---------------- MAIN ATTENDANCE LOGIC ----------------
 class AttendanceApp:
-    def __init__(self):
+    def __init__(self, employee_id):
+        self.employee_id = employee_id
+
+        start_time, end_time = fetch_shift(employee_id)
+        today = date.today()
+
+        # 🔑 USE DATETIME (not time)
+        self.shift_start_dt = datetime.combine(today, start_time)
+        self.shift_end_dt = datetime.combine(today, end_time)
+
         self.tracker = ActivityTracker(idle_threshold=10)
         self.tracker.start()
 
-        self.shift_start = SHIFT_START.strftime("%H:%M")
-        self.shift_end = SHIFT_END.strftime("%H:%M")
+        self.shift_start = start_time.strftime("%H:%M")
+        self.shift_end = end_time.strftime("%H:%M")
 
         self.shift_seconds = 0
         self.productive_seconds = 0
         self.break_seconds = 0
 
         self.shift_over = False
-        self.overtime_seconds = 0
-        self.add_overtime_to_productive = False
+        self.overtime_approved = False
 
     def tick(self):
-        now = datetime.now().time()
+        now = datetime.now()
 
-        # BEFORE SHIFT → IGNORE EVERYTHING
-        if now < SHIFT_START:
+        # ---------------- BEFORE SHIFT ----------------
+        if now < self.shift_start_dt:
             self.tracker.reset()
             return
 
-        # DURING SHIFT
-        if SHIFT_START <= now <= SHIFT_END:
+        # ---------------- DURING SHIFT ----------------
+        if self.shift_start_dt <= now <= self.shift_end_dt:
             self.tracker.tick()
+
             self.shift_seconds += 1
             self.productive_seconds += self.tracker.active_seconds
             self.break_seconds += self.tracker.break_seconds
+
             self.tracker.reset()
             return
 
-        # AFTER SHIFT → OVERTIME
-        if now > SHIFT_END:
+        # ---------------- AFTER SHIFT ----------------
+        if now > self.shift_end_dt:
             if not self.shift_over:
                 self.shift_over = True
-                start_minutes = self.shift_seconds // 60
-                user_clicked_yes, overtime_elapsed = ask_overtime(start_minutes)
 
-                if user_clicked_yes:
-                    self.add_overtime_to_productive = True
-                    self.overtime_seconds = overtime_elapsed
+                worked_minutes = self.shift_seconds // 60
+                self.overtime_approved = ask_overtime(worked_minutes)
 
-            # If user agreed, keep adding overtime seconds every tick
-            if self.add_overtime_to_productive:
-                self.overtime_seconds += 1
+            if self.overtime_approved:
                 self.shift_seconds += 1
                 self.productive_seconds += 1
 
 
+# ---------------- APP START ----------------
 def main():
     app = QApplication(sys.argv)
 
-    attendance = AttendanceApp()
+    attendance = AttendanceApp(employee_id="EMP001")
     window = TrackerWindow(attendance)
     window.show()
 
-    # Timer to update attendance every second
     timer = QTimer()
     timer.timeout.connect(attendance.tick)
     timer.start(1000)
