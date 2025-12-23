@@ -1,7 +1,7 @@
 import sys
 import time
-from PyQt5.QtWidgets import QApplication, QMessageBox, QLabel, QVBoxLayout, QWidget
-from PyQt5.QtCore import QTimer
+from PyQt6.QtWidgets import QApplication, QMessageBox, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtCore import QTimer
 
 
 def ask_overtime(start_minutes):
