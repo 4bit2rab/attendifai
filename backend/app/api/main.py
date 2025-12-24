@@ -1,19 +1,41 @@
 from fastapi import FastAPI
-from backend.app.models.models import ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest
+from backend.app.models.models import ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse
 from desktop_client.app.storage.store import shift_store
 from fastapi import FastAPI, Header, HTTPException
+from sqlalchemy.orm import Session
+from backend.app.db.mySqlConfig import sessionLocal
+from fastapi import Depends, HTTPException, status
+from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
+from backend.app.db.mySqlConfig import Base, engine
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
+
+
 from pydantic import BaseModel
 from jose import jwt
+import sqlite3
+
 SECRET_KEY = "hackathon-secret"
 ALGORITHM = "HS256"
+
+# Create the database tables
+Base.metadata.create_all(bind=engine)
+
+# Dependency to get DB session
+def get_db():
+    db = sessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 app = FastAPI(title="Attendance Backend")
 
 def get_emp_id(authorization: str = Header(...)):
     try:
         token = authorization.split(" ")[1]
+        print(token)
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload["emp_id"]
+        return payload["employee_id"]
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
  
@@ -24,62 +46,21 @@ def generate_token(
     ):
     response_token = generate_employee_token(db, request.employee_email)
     return response_token
-# Service to generate employee token
-def generate_employee_token(db_session, email):
-    employee = get_employee_by_email(db_session, email)
- 
-    if not employee:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee email not found"
-        )
-   
-    existing_token = db_session.query(EmployeeToken).filter(EmployeeToken.employee_id == employee.employee_id).first()
- 
-    if existing_token:
-        return TokenResponse(token=existing_token.token, employee_id=employee.employee_id)
- 
-    token = create_employee_token(employee.employee_id)
- 
-    employee_token = EmployeeToken(employee_id=employee.employee_id, token=token, created_at=str(datetime.utcnow()))
-    db_session.add(employee_token)
-    db_session.commit()
- 
-    response = TokenResponse(token=token, employee_id=employee.employee_id)
- 
-    return response
-
-def create_employee_token(employee_id: int):
- 
-    to_encode = {"employee_id": employee_id}
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
- 
  
 # ---------------- GET EMPLOYEE ----------------
-@app.post("/sync", response_model=ProductivityPayload)
+@app.post("/sync")
 def record_productivity(
     payload: ProductivityPayload, authorization: str = Header(...)
-):
-    emp_id = get_emp_id(authorization)
+,db: Session = Depends(get_db)):
+    employee_id = get_emp_id(authorization)
  
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO productivity (emp_id, date, productive_seconds, idle_seconds)
-        VALUES (?, ?, ?, ?)
-    """,
-        (
-            emp_id,
-            payload.date,
-            payload.productive_seconds,
-            payload.idle_seconds,
-        ),
-    )
-    conn.commit()
-    conn.close()
+    employee_activity_log = EmployeeActivityLog(employee_id=employee_id,
+    log_date=payload.log_date,
+    productive_time=payload.productive_time,
+    idle_time=payload.idle_time,
+    over_time=payload.over_time)
+    db.add(employee_activity_log)
+    db.commit()
  
     return {
         "success": True,
@@ -88,34 +69,129 @@ def record_productivity(
 
 
 # ---------------- SHIFT ----------------
-@app.post("/assign-shift", response_model=ShiftResponse)
-def assign_shift(data: ShiftAssignRequest):
-    shift_store[data.employee_id] = {
-        "start": data.shift_start,
-        "end": data.shift_end
-    }
-    return ShiftResponse(
-        employee_id=data.employee_id,
+@app.post("/create-shift")
+def assign_shift(
+    data: ShiftAssignRequest,
+    db: Session = Depends(get_db),
+):
+    
+    shift = ShiftDetails(
+        shift_code=data.shift_code,
         shift_start=data.shift_start,
-        shift_end=data.shift_end,
-        status="assigned"
+        shift_end=data.shift_end
+    )
+ 
+    db.add(shift)
+    db.commit()
+    db.refresh(shift)
+ 
+    return {
+        "success": True,
+        "message": "Shift created",
+    }
+
+@app.get("/shift", response_model=ShiftResponse)
+def get_shift(
+    db: Session = Depends(get_db),
+    authorization: str = Header(...)
+):
+    employee_id = get_emp_id(authorization)  
+
+    employee_details = (
+        db.query(Employee)
+        .filter(Employee.employee_id == employee_id)
+        .first()
     )
 
-
-@app.get("/shift/{employee_id}", response_model=ShiftResponse)
-def get_shift(employee_id: str):
-    shift = shift_store.get(employee_id)
-    if not shift:
+    shift_details = (
+        db.query(ShiftDetails)
+        .filter(ShiftDetails.shift_code == employee_details.shift_code)
+        .first()
+    )
+ 
+    if not shift_details:
         return ShiftResponse(
-            employee_id=employee_id,
-            shift_start="",
-            shift_end="",
-            status="not found"
+            shift_code=None,
+            shift_start=None,
+            shift_end=None,
+        )
+ 
+    return shift_details
+
+@app.put("/update-shift-time/{shift_code}", response_model=ShiftResponse)
+def update_shift(shift_code: str,
+    data: ShiftAssignRequest,
+    db: Session = Depends(get_db)
+):
+    shift = (
+        db.query(ShiftDetails)
+        .filter(ShiftDetails.shift_code == shift_code)
+        .first()
+    )
+ 
+    if not shift:
+        raise HTTPException(
+            status_code=404,
+            detail="Shift  does not exist"
+        )
+ 
+    if data.shift_end <= data.shift_start:
+        raise HTTPException(
+            status_code=400,
+            detail="Shift end must be after shift start"
+        )
+ 
+    shift.shift_start = data.shift_start
+    shift.shift_end = data.shift_end
+ 
+    db.commit()
+    db.refresh(shift)
+ 
+    return ShiftResponse(
+        shift_code=shift_code,
+        shift_start=shift.shift_start,
+        shift_end=shift.shift_end,
+    )
+
+# ---------------- Employee ----------------
+
+# Endpoint to create a new employee
+@app.post("/create-employee", response_model=EmployeeResponse, status_code=201)
+def create_employee(request: EmployeeRequest, db: Session = Depends(get_db)):
+    return create_employee_record(db, request)
+
+@app.put("/assign-shift/{employee_id}")
+def update_employee_shift(employee_id,
+shift_code: str,
+db: Session = Depends(get_db)
+):
+    employee = (
+        db.query(Employee)
+        .filter(Employee.employee_id == employee_id)
+        .first()
+    )
+
+    if not employee:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee does not exist"
         )
 
-    return ShiftResponse(
-        employee_id=employee_id,
-        shift_start=shift["start"],
-        shift_end=shift["end"],
-        status="found"
-    )
+    employee.shift_code = shift_code
+    db.commit()
+    db.refresh(employee)
+
+    return {
+        "success": True,
+        "message": "Employee shift updated",
+    }
+
+# Endpoint to get all employee details
+@app.get("/get-all-employee")
+def get_employee(db: Session = Depends(get_db)):
+    return get_all_employees(db)
+
+
+
+
+

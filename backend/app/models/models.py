@@ -1,11 +1,12 @@
 from pydantic import BaseModel, EmailStr
-from datetime import time
+from datetime import time,date
 
 
 class ProductivityPayload(BaseModel):
-    date: str
-    productive_seconds: int
-    idle_seconds: int
+    log_date: date
+    productive_time: int
+    idle_time: int
+    over_time: int
 
 class TokenRequest(BaseModel):
     employee_email: EmailStr
@@ -16,11 +17,24 @@ class TokenResponse(BaseModel):
 
 
 class ShiftAssignRequest(BaseModel):
-    employee_id: str
     shift_start: time
     shift_end: time
 
 class ShiftResponse(BaseModel):
-    employee_id: str
+    shift_code: str
     shift_start: time
     shift_end: time
+
+class EmployeeRequest(BaseModel):
+    employee_name: str
+    employee_email: EmailStr
+    employee_phone: str
+    shift_code: str
+
+
+class EmployeeResponse(BaseModel):
+    employee_id: str
+     
+
+    class Config:   
+        from_attributes = True
