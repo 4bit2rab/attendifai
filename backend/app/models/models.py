@@ -17,6 +17,7 @@ class TokenResponse(BaseModel):
 
 
 class ShiftAssignRequest(BaseModel):
+    shift_code: str
     shift_start: time
     shift_end: time
 
