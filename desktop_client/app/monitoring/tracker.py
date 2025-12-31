@@ -16,6 +16,8 @@ class ActivityTracker:
         self.state = "idle"  # "productive" or "idle"
         self.state_start_time = datetime.now()
         self._running = False
+        self._overtime_split_done = False
+
 
     def _on_activity(self):
         """Called on any keyboard/mouse activity"""
@@ -44,7 +46,6 @@ class ActivityTracker:
             else:
                 self.idle_seconds += 1
 
-
     def _track_time_thread(self):
         """Background thread: track state changes and store in DB"""
         while self._running:
@@ -53,15 +54,24 @@ class ActivityTracker:
             with self.lock:
                 elapsed = time.time() - self.last_activity
                 current_state = "productive" if elapsed <= self.idle_threshold else "idle"
+                # ---- 1. OVERTIME APPROVAL JUST HAPPENED ----
+                if self.app.overtime_approved and not self._overtime_split_done:
+                    add_session(
+                        self.state,
+                        self.state_start_time,
+                        now,
+                        overtime=0
+                    )
+
+                    # Start new overtime session
+                    self.state_start_time = now
+                    self._overtime_split_done = True
+                    self.state = current_state
+                    continue
 
                 # If state changed, write session to DB
                 if current_state != self.state:
-                    overtime=0
-                    if (self.app.shift_over and not self.app.overtime_approved) or (self.app.overtime_approved and current_state=="idle"):
-                        continue
-
-                    if self.app.overtime_approved:
-                        overtime=1
+                    overtime = 1 if self.app.overtime_approved else 0
                     add_session(self.state, self.state_start_time, now,overtime)
                     self.state = current_state
                     self.state_start_time = now

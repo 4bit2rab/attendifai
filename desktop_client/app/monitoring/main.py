@@ -4,12 +4,10 @@ import sqlite3
 import requests
 from datetime import date, datetime, timedelta
 from PyQt6.QtWidgets import QApplication, QMessageBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
-from PyQt6.QtCore import QTimer
 from dbConfig import initialize_db,mark_day_as_synced,get_daily_productivity
 from tracker import ActivityTracker
-from tracker_widget import TrackerWindow
-from overtime_ui import ask_overtime
 from notifications.widget import AttendifAIWidget
+from overtime_ui import OvertimeNotification
 
 
 DB_PATH = "attendance_agent.db"
@@ -157,21 +155,33 @@ class AttendanceApp:
             self.idle_seconds += idle
             return
 
-        # Shift over
-        if now > self.shift_end_dt and not self.shift_over:
+        if not self.shift_over:
             self.shift_over = True
-            worked_minutes = self.shift_seconds // 60
-            self.overtime_approved = ask_overtime(worked_minutes)
-            if not self.overtime_approved:
+            self.show_overtime_popup()
+            return
+        
+        if not self.overtime_approved:
                 return
 
-        # Overtime tracking
         if self.overtime_approved:
-            self.shift_seconds += active + idle
+            self.shift_seconds += active
             self.productive_seconds += active
+            self.overtime_seconds += active
             self.break_seconds += idle
             self.idle_seconds += idle
-            self.overtime_seconds += active + idle
+            return
+
+    def show_overtime_popup(self):
+        if hasattr(self, "overtime_popup") and self.overtime_popup.isVisible():
+            return 
+
+        self.overtime_popup = OvertimeNotification()
+        self.overtime_popup.approved.connect(self.on_overtime_decision)
+        self.overtime_popup.show()
+
+    def on_overtime_decision(self, approved: bool):
+        print("Overtime approved:", approved)
+        self.overtime_approved = approved
 
 # ---------------- START APP ----------------
 def start_attendance_app():
