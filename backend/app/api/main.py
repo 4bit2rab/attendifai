@@ -1,3 +1,5 @@
+from fastapi import FastAPI,Query
+from backend.app.models.models import ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse,AttendanceResponse
 from fastapi import FastAPI
 from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate
 from desktop_client.app.storage.store import shift_store
@@ -8,13 +10,19 @@ from fastapi import Depends, HTTPException, status, Query
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report
 from backend.app.db.mySqlConfig import Base, engine
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
+from typing import List
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,EmployeeToken
 from datetime import date
 
 from pydantic import BaseModel
 from jose import jwt
 import sqlite3
+from fastapi.middleware.cors import CORSMiddleware
 
+origins = [
+    "http://localhost:5173",  # React dev server
+]
 SECRET_KEY = "hackathon-secret"
 ALGORITHM = "HS256"
 
@@ -30,7 +38,13 @@ def get_db():
         db.close()
 
 app = FastAPI(title="Attendance Backend")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # or ["*"] for all origins during dev
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 def get_emp_id(authorization: str = Header(...)):
     try:
         token = authorization.split(" ")[1]
@@ -191,6 +205,41 @@ db: Session = Depends(get_db)
 @app.get("/get-all-employee")
 def get_employee(db: Session = Depends(get_db)):
     return get_all_employees(db)
+
+@app.get("/attendance", response_model=List[AttendanceResponse])
+def get_attendance(
+    date: str= Query(...) ,db: Session = Depends(get_db),
+):
+    results = (
+        db.query(
+            Employee.employee_name,
+            EmployeeActivityLog.log_date,
+            EmployeeActivityLog.productive_time,
+            EmployeeActivityLog.idle_time,
+            EmployeeActivityLog.over_time,
+        )
+        .join(
+            Employee,
+            Employee.employee_id == EmployeeActivityLog.employee_id
+        )
+        .filter(EmployeeActivityLog.log_date == date)
+        .order_by(EmployeeActivityLog.log_date.desc())
+        .all()
+    )
+
+    if not results:
+        return []
+
+    return [
+        AttendanceResponse(
+            employee_name=row.employee_name,
+            log_date=row.log_date,
+            productive_time=row.productive_time,
+            idle_time=row.idle_time,
+            over_time=row.over_time,
+        )
+        for row in results
+    ]
 
 
 

@@ -4,14 +4,14 @@ import sqlite3
 import requests
 from datetime import date, datetime, timedelta
 from PyQt6.QtWidgets import QApplication, QMessageBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
-from PyQt6.QtCore import QTimer
-from dbConfig import initialize_db
+from dbConfig import initialize_db,mark_day_as_synced,get_daily_productivity
 from tracker import ActivityTracker
-from tracker_widget import TrackerWindow
-from overtime_ui import ask_overtime
+from notifications.widget import AttendifAIWidget
+from overtime_ui import OvertimeNotification
+
 
 DB_PATH = "attendance_agent.db"
-BACKEND_URL = "http://127.0.0.1:9000"
+BACKEND_URL = "http://127.0.0.1:8000"
 
 # ---------------- DATABASE / TOKEN ----------------
 def save_token(token: str):
@@ -91,6 +91,33 @@ def fetch_shift():
         return start, end, shift_code
     raise RuntimeError(f"Failed to fetch shift: {response.text}")
 
+def sync_productivity():
+    yesterday_date = date.today() - timedelta(days=1)
+    prod, idle, overtime = get_daily_productivity(yesterday_date)
+    if prod:
+        payload = {
+            "log_date": yesterday_date.isoformat(),
+            "productive_time": prod,
+            "idle_time": idle,
+            "over_time": overtime,
+        }
+
+        headers = {"Authorization": f"Bearer {load_token()}"}
+        response = requests.post(f"{BACKEND_URL}/sync",json=payload, headers=headers)
+
+        if response.status_code == 200:
+            mark_day_as_synced(yesterday_date)
+            return response.json()
+
+        elif response.status_code == 401:
+            raise RuntimeError("Unauthorized - token invalid or expired")
+
+        else:
+            raise RuntimeError(
+                f"Sync failed [{response.status_code}]: {response.text}"
+            )
+
+
 # ---------------- ATTENDANCE APP ----------------
 class AttendanceApp:
     def __init__(self):
@@ -101,7 +128,7 @@ class AttendanceApp:
         if self.shift_end_dt <= self.shift_start_dt:  # handle overnight shifts
             self.shift_end_dt += timedelta(days=1)
 
-        self.tracker = ActivityTracker(idle_threshold=10)  # 10s idle threshold
+        self.tracker = ActivityTracker(self,idle_threshold=5)  # 10s idle threshold
         self.tracker.start()
 
         self.shift_seconds = 0
@@ -114,12 +141,11 @@ class AttendanceApp:
 
     def tick(self):
         now = datetime.now()
+        self.tracker.tick()
+        active, idle = self.tracker.get_and_reset_counters()
 
         if now < self.shift_start_dt:
             return  # shift not started
-
-        self.tracker.tick()
-        active, idle = self.tracker.get_and_reset_counters()
 
         # Shift in progress
         if self.shift_start_dt <= now <= self.shift_end_dt:
@@ -129,56 +155,45 @@ class AttendanceApp:
             self.idle_seconds += idle
             return
 
-        # Shift over
-        if now > self.shift_end_dt and not self.shift_over:
+        if not self.shift_over:
             self.shift_over = True
-            worked_minutes = self.shift_seconds // 60
-            self.overtime_approved = ask_overtime(worked_minutes)
+            self.show_overtime_popup()
+            return
+        
+        if not self.overtime_approved:
+                return
 
-        # Overtime tracking
         if self.overtime_approved:
-            self.shift_seconds += active + idle
+            self.shift_seconds += active
             self.productive_seconds += active
+            self.overtime_seconds += active
             self.break_seconds += idle
             self.idle_seconds += idle
-            self.overtime_seconds += active + idle
+            return
+
+    def show_overtime_popup(self):
+        if hasattr(self, "overtime_popup") and self.overtime_popup.isVisible():
+            return 
+
+        self.overtime_popup = OvertimeNotification()
+        self.overtime_popup.approved.connect(self.on_overtime_decision)
+        self.overtime_popup.show()
+
+    def on_overtime_decision(self, approved: bool):
+        print("Overtime approved:", approved)
+        self.overtime_approved = approved
 
 # ---------------- START APP ----------------
 def start_attendance_app():
     attendance = AttendanceApp()
-    window = TrackerWindow(attendance)
-    window.show()
-
-    # Keep QTimer alive by attaching it to window
-    window.timer = QTimer()
-    window.timer.timeout.connect(attendance.tick)
-    window.timer.start(1000)  # tick every second
-
-    return window
-
-# ---------------- MAIN ----------------
-# def main():
-#     initialize_db()
-#     app = QApplication(sys.argv)
-#     try:
-#         load_token()
-#         window = start_attendance_app()
-#     except RuntimeError:
-#         def on_registered():
-#             nonlocal window
-#             window = start_attendance_app()
-
-#         reg_window = RegistrationWindow(on_registered)
-#         reg_window.show()
-#         window = reg_window
-
-#     sys.exit(app.exec())
+    ui = AttendifAIWidget(attendance)
+    return ui
 
 
 def main():
-    initialize_db()
+    initialize_db() 
+    sync_productivity()
     app = QApplication(sys.argv)
-
     if load_token():
         # Employee already registered, start app directly
         load_token()

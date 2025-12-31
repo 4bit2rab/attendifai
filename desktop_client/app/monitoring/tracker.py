@@ -6,7 +6,8 @@ from datetime import datetime
 from dbConfig import add_session
 
 class ActivityTracker:
-    def __init__(self, idle_threshold=30):
+    def __init__(self, app,idle_threshold=30):
+        self.app=app
         self.idle_threshold = idle_threshold  # seconds
         self.last_activity = time.time()
         self.active_seconds = 0
@@ -15,6 +16,8 @@ class ActivityTracker:
         self.state = "idle"  # "productive" or "idle"
         self.state_start_time = datetime.now()
         self._running = False
+        self._overtime_split_done = False
+
 
     def _on_activity(self):
         """Called on any keyboard/mouse activity"""
@@ -51,10 +54,25 @@ class ActivityTracker:
             with self.lock:
                 elapsed = time.time() - self.last_activity
                 current_state = "productive" if elapsed <= self.idle_threshold else "idle"
+                # ---- 1. OVERTIME APPROVAL JUST HAPPENED ----
+                if self.app.overtime_approved and not self._overtime_split_done:
+                    add_session(
+                        self.state,
+                        self.state_start_time,
+                        now,
+                        overtime=0
+                    )
+
+                    # Start new overtime session
+                    self.state_start_time = now
+                    self._overtime_split_done = True
+                    self.state = current_state
+                    continue
 
                 # If state changed, write session to DB
                 if current_state != self.state:
-                    add_session(self.state, self.state_start_time, now)
+                    overtime = 1 if self.app.overtime_approved else 0
+                    add_session(self.state, self.state_start_time, now,overtime)
                     self.state = current_state
                     self.state_start_time = now
 

@@ -32,6 +32,12 @@ class EmployeeRequest(BaseModel):
     employee_phone: str
     shift_code: str
 
+class AttendanceResponse(BaseModel):
+    employee_name: str
+    log_date: date
+    productive_time: int
+    idle_time: int
+    over_time: int
 
 class EmployeeResponse(BaseModel):
     employee_id: str
