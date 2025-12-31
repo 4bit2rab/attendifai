@@ -6,7 +6,8 @@ from datetime import datetime
 from dbConfig import add_session
 
 class ActivityTracker:
-    def __init__(self, idle_threshold=30):
+    def __init__(self, app,idle_threshold=30):
+        self.app=app
         self.idle_threshold = idle_threshold  # seconds
         self.last_activity = time.time()
         self.active_seconds = 0
@@ -43,6 +44,7 @@ class ActivityTracker:
             else:
                 self.idle_seconds += 1
 
+
     def _track_time_thread(self):
         """Background thread: track state changes and store in DB"""
         while self._running:
@@ -54,7 +56,13 @@ class ActivityTracker:
 
                 # If state changed, write session to DB
                 if current_state != self.state:
-                    add_session(self.state, self.state_start_time, now)
+                    overtime=0
+                    if (self.app.shift_over and not self.app.overtime_approved) or (self.app.overtime_approved and current_state=="idle"):
+                        continue
+
+                    if self.app.overtime_approved:
+                        overtime=1
+                    add_session(self.state, self.state_start_time, now,overtime)
                     self.state = current_state
                     self.state_start_time = now
 

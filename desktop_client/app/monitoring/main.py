@@ -9,9 +9,11 @@ from dbConfig import initialize_db
 from tracker import ActivityTracker
 from tracker_widget import TrackerWindow
 from overtime_ui import ask_overtime
+from notifications.widget import AttendifAIWidget
+
 
 DB_PATH = "attendance_agent.db"
-BACKEND_URL = "http://127.0.0.1:9000"
+BACKEND_URL = "http://127.0.0.1:8000"
 
 # ---------------- DATABASE / TOKEN ----------------
 def save_token(token: str):
@@ -101,7 +103,7 @@ class AttendanceApp:
         if self.shift_end_dt <= self.shift_start_dt:  # handle overnight shifts
             self.shift_end_dt += timedelta(days=1)
 
-        self.tracker = ActivityTracker(idle_threshold=10)  # 10s idle threshold
+        self.tracker = ActivityTracker(self,idle_threshold=5)  # 10s idle threshold
         self.tracker.start()
 
         self.shift_seconds = 0
@@ -114,12 +116,11 @@ class AttendanceApp:
 
     def tick(self):
         now = datetime.now()
+        self.tracker.tick()
+        active, idle = self.tracker.get_and_reset_counters()
 
         if now < self.shift_start_dt:
             return  # shift not started
-
-        self.tracker.tick()
-        active, idle = self.tracker.get_and_reset_counters()
 
         # Shift in progress
         if self.shift_start_dt <= now <= self.shift_end_dt:
@@ -134,6 +135,8 @@ class AttendanceApp:
             self.shift_over = True
             worked_minutes = self.shift_seconds // 60
             self.overtime_approved = ask_overtime(worked_minutes)
+            if not self.overtime_approved:
+                return
 
         # Overtime tracking
         if self.overtime_approved:
@@ -146,39 +149,13 @@ class AttendanceApp:
 # ---------------- START APP ----------------
 def start_attendance_app():
     attendance = AttendanceApp()
-    window = TrackerWindow(attendance)
-    window.show()
-
-    # Keep QTimer alive by attaching it to window
-    window.timer = QTimer()
-    window.timer.timeout.connect(attendance.tick)
-    window.timer.start(1000)  # tick every second
-
-    return window
-
-# ---------------- MAIN ----------------
-# def main():
-#     initialize_db()
-#     app = QApplication(sys.argv)
-#     try:
-#         load_token()
-#         window = start_attendance_app()
-#     except RuntimeError:
-#         def on_registered():
-#             nonlocal window
-#             window = start_attendance_app()
-
-#         reg_window = RegistrationWindow(on_registered)
-#         reg_window.show()
-#         window = reg_window
-
-#     sys.exit(app.exec())
+    ui = AttendifAIWidget(attendance)
+    return ui
 
 
 def main():
-    initialize_db()
+    initialize_db() 
     app = QApplication(sys.argv)
-
     if load_token():
         # Employee already registered, start app directly
         load_token()
