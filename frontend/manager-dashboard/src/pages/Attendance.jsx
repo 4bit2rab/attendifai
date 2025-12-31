@@ -98,10 +98,10 @@ export default function Attendance() {
       setLoading(false);
     }
   };
-
-  const formatTime = (minutes) => {
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
+  const formatTime = (seconds) => {
+    const totalMinutes = Math.floor(seconds / 60);
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
     return `${hrs}h ${mins}m`;
   };
 
