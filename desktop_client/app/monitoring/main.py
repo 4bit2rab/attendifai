@@ -5,7 +5,7 @@ import requests
 from datetime import date, datetime, timedelta
 from PyQt6.QtWidgets import QApplication, QMessageBox, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
 from PyQt6.QtCore import QTimer
-from dbConfig import initialize_db
+from dbConfig import initialize_db,mark_day_as_synced,get_daily_productivity
 from tracker import ActivityTracker
 from tracker_widget import TrackerWindow
 from overtime_ui import ask_overtime
@@ -93,6 +93,33 @@ def fetch_shift():
         return start, end, shift_code
     raise RuntimeError(f"Failed to fetch shift: {response.text}")
 
+def sync_productivity():
+    yesterday_date = date.today() - timedelta(days=1)
+    prod, idle, overtime = get_daily_productivity(yesterday_date)
+    if prod:
+        payload = {
+            "log_date": yesterday_date.isoformat(),
+            "productive_time": prod,
+            "idle_time": idle,
+            "over_time": overtime,
+        }
+
+        headers = {"Authorization": f"Bearer {load_token()}"}
+        response = requests.post(f"{BACKEND_URL}/sync",json=payload, headers=headers)
+
+        if response.status_code == 200:
+            mark_day_as_synced(yesterday_date)
+            return response.json()
+
+        elif response.status_code == 401:
+            raise RuntimeError("Unauthorized - token invalid or expired")
+
+        else:
+            raise RuntimeError(
+                f"Sync failed [{response.status_code}]: {response.text}"
+            )
+
+
 # ---------------- ATTENDANCE APP ----------------
 class AttendanceApp:
     def __init__(self):
@@ -155,6 +182,7 @@ def start_attendance_app():
 
 def main():
     initialize_db() 
+    sync_productivity()
     app = QApplication(sys.argv)
     if load_token():
         # Employee already registered, start app directly
