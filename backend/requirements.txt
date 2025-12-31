@@ -4,3 +4,5 @@ python-jose[cryptography]
 sqlalchemy 
 pymysql
 pydantic
+passlib[argon2]
+argon2-cffi

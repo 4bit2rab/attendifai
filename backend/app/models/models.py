@@ -35,7 +35,23 @@ class EmployeeRequest(BaseModel):
 
 class EmployeeResponse(BaseModel):
     employee_id: str
-     
+
+class ManagerRequest(BaseModel):
+    manager_name: str   
+    manager_email: EmailStr
+    manager_phone: str
+    department: str
+    password_hash: str
+
+class ManagerResponse(BaseModel):
+    manager_id: str
+
+from pydantic import BaseModel
+
+class ManagerEmployeeMapCreate(BaseModel):
+    manager_id: str
+    employee_id: str
+    
 
     class Config:   
         from_attributes = True

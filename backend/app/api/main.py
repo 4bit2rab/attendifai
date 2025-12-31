@@ -1,14 +1,15 @@
 from fastapi import FastAPI
-from backend.app.models.models import ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse
+from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate
 from desktop_client.app.storage.store import shift_store
 from fastapi import FastAPI, Header, HTTPException
 from sqlalchemy.orm import Session
 from backend.app.db.mySqlConfig import sessionLocal
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
+from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report
 from backend.app.db.mySqlConfig import Base, engine
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
-
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,EmployeeToken
+from datetime import date
 
 from pydantic import BaseModel
 from jose import jwt
@@ -193,5 +194,49 @@ def get_employee(db: Session = Depends(get_db)):
 
 
 
+# ---------------- Manager ----------------
+# Endpoint to create a new manager  
+@app.post("/create-manager", response_model=ManagerResponse, status_code=201)
+def create_manager(request: ManagerRequest, db: Session = Depends(get_db)):
+    return create_manager_record(db, request)
 
+# Endpoint for manager login
+@app.get("/manager/login", response_model=ManagerResponse)
+def login_manager(email: str, password: str, db: Session = Depends(get_db)):
+    manager = authenticate_manager(db, email, password)
+    print("Authenticated manager:", manager)
+    if not manager:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+    return ManagerResponse(
+        manager_id=manager.manager_id
+    )
 
+# ---------------- Manager Employee Mapping ----------------
+@app.post("/assign-employee")
+def assign_employee_to_manager(request: ManagerEmployeeMapCreate, db: Session = Depends(get_db)):
+    return assign_employee_to_manager_record(db, request)
+
+@app.get("/{manager_id}/employees")
+def get_employees(manager_id: str, db: Session = Depends(get_db)):
+    data = db.query(ManagerEmployeeMap).filter(
+        ManagerEmployeeMap.manager_id == manager_id
+    ).all()
+
+    return {
+        "manager_id": manager_id,
+        "employees": [
+            {
+                "employee_id": m.employee.employee_id,
+                "employee_name": m.employee.employee_name,
+                "employee_email": m.employee.employee_email
+            }
+            for m in data
+        ]
+    }
+
+@app.get("/employee/report")
+def get_employee_report(manager_id: str, start_date: date | None = Query(None), end_date: date | None = Query(None), db: Session = Depends(get_db)):
+    return  generate_employee_productivity_report(db, manager_id, start_date, end_date)
