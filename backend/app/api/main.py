@@ -210,6 +210,36 @@ def get_employee(db: Session = Depends(get_db)):
 def get_attendance(
     date: str= Query(...) ,db: Session = Depends(get_db),
 ):
+    # employee_ids = (
+    #     db.query(ManagerEmployeeMap.employee_id)
+    #     .filter(ManagerEmployeeMap.manager_id == current_manager_id)
+    #     .all()
+    # )
+    # employee_ids = [eid[0] for eid in employee_ids]
+
+    # if not employee_ids:
+    #     return []
+    # logs = (
+    #     db.query(EmployeeActivityLog)
+    #     .filter(EmployeeActivityLog.employee_id.in_(employee_ids))
+    #     .all()
+    # )
+    # response = []
+    # employees = db.query(Employee).filter(Employee.employee_id.in_(employee_ids)).all()
+    # emp_map = {emp.employee_id: emp.employee_name for emp in employees}
+
+    # for log in logs:
+    #     response.append(
+    #         AttendanceResponse(
+    #             employee_name=emp_map.get(log.employee_id, "Unknown"),
+    #             log_date=log.log_date,
+    #             productive_time=log.productive_time,
+    #             idle_time=log.idle_time,
+    #             over_time=log.over_time,
+    #         )
+    #     )
+
+    # return response
     results = (
         db.query(
             Employee.employee_name,
@@ -237,6 +267,43 @@ def get_attendance(
             productive_time=row.productive_time,
             idle_time=row.idle_time,
             over_time=row.over_time,
+        )
+        for row in results
+    ]
+
+# Endpoint to get all employee details
+@app.get("/get-all-employee")
+def get_employee(db: Session = Depends(get_db)):
+    return get_all_employees(db)
+
+@app.delete("/delete-shift/{shift_code}")
+def delete_shift(
+    shift_code: str,
+    db: Session = Depends(get_db),
+):
+    shift = db.query(ShiftDetails).filter(ShiftDetails.shift_code == shift_code).first()
+    if not shift:
+        raise HTTPException(status_code=404, detail="Shift not found")
+    db.delete(shift)
+    db.commit()
+
+@app.get("/shifts", response_model=List[ShiftResponse])
+def get_shifts(
+    db: Session = Depends(get_db),
+):
+    results = (
+        db.query(
+            ShiftDetails.shift_code,
+            ShiftDetails.shift_start,
+            ShiftDetails.shift_end,
+        ).all()
+    )
+
+    return [
+        ShiftResponse(
+            shift_code=row.shift_code,
+            shift_start=row.shift_start,
+            shift_end=row.shift_end,
         )
         for row in results
     ]
