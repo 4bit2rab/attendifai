@@ -15,7 +15,7 @@ def create_manager_record(db_session, manager_request: ManagerRequest):
             manager_name=manager_request.manager_name,
             manager_email=manager_request.manager_email,
             manager_phone=manager_request.manager_phone,
-            department=manager_request.department,
+            department=manager_request.department
         )
 
         db_session.add(new_manager)
