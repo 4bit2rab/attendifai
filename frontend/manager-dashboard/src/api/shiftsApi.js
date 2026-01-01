@@ -26,7 +26,7 @@
 
 import axios from "axios";
 
-const API_BASE_URL = "http://127.0.0.1:8000"; // FastAPI backend
+const API_BASE_URL = "http://127.0.0.1:9000"; // FastAPI backend
 
 // Fetch all shifts
 export const getShifts = async () => {
