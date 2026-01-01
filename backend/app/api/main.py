@@ -1,22 +1,19 @@
-from fastapi import FastAPI,Query
-from backend.app.models.models import ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse,AttendanceResponse
-from fastapi import FastAPI
-from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate
+from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
+from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse
 from desktop_client.app.storage.store import shift_store
-from fastapi import FastAPI, Header, HTTPException
 from sqlalchemy.orm import Session
-from backend.app.db.mySqlConfig import sessionLocal
-from fastapi import Depends, HTTPException, status, Query
+from backend.app.db.mySqlConfig import sessionLocal,Base, engine
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
+from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
 from backend.app.db.mySqlConfig import Base, engine
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
 from typing import List
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,EmployeeToken
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager
 from datetime import date
+from backend.app.core.security import hash_password
 from pydantic import BaseModel
 from jose import jwt
-import sqlite3
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.token_generator import get_user_id
 
@@ -168,6 +165,39 @@ def update_shift(shift_code: str,
         shift_end=shift.shift_end,
     )
 
+@app.delete("/delete-shift/{shift_code}")
+def delete_shift(
+    shift_code: str,
+    db: Session = Depends(get_db),
+):
+    shift = db.query(ShiftDetails).filter(ShiftDetails.shift_code == shift_code).first()
+    if not shift:
+        raise HTTPException(status_code=404, detail="Shift not found")
+    db.delete(shift)
+    db.commit()
+
+@app.get("/shifts", response_model=List[ShiftResponse])
+def get_shifts(
+    db: Session = Depends(get_db),
+):
+    results = (
+        db.query(
+            ShiftDetails.shift_code,
+            ShiftDetails.shift_start,
+            ShiftDetails.shift_end,
+        ).all()
+    )
+
+    return [
+        ShiftResponse(
+            shift_code=row.shift_code,
+            shift_start=row.shift_start,
+            shift_end=row.shift_end,
+        )
+        for row in results
+    ]
+
+
 # ---------------- Employee ----------------
 
 # Endpoint to create a new employee
@@ -210,6 +240,36 @@ def get_employee(db: Session = Depends(get_db)):
 def get_attendance(
     date: str= Query(...) ,db: Session = Depends(get_db),
 ):
+    # employee_ids = (
+    #     db.query(ManagerEmployeeMap.employee_id)
+    #     .filter(ManagerEmployeeMap.manager_id == current_manager_id)
+    #     .all()
+    # )
+    # employee_ids = [eid[0] for eid in employee_ids]
+
+    # if not employee_ids:
+    #     return []
+    # logs = (
+    #     db.query(EmployeeActivityLog)
+    #     .filter(EmployeeActivityLog.employee_id.in_(employee_ids))
+    #     .all()
+    # )
+    # response = []
+    # employees = db.query(Employee).filter(Employee.employee_id.in_(employee_ids)).all()
+    # emp_map = {emp.employee_id: emp.employee_name for emp in employees}
+
+    # for log in logs:
+    #     response.append(
+    #         AttendanceResponse(
+    #             employee_name=emp_map.get(log.employee_id, "Unknown"),
+    #             log_date=log.log_date,
+    #             productive_time=log.productive_time,
+    #             idle_time=log.idle_time,
+    #             over_time=log.over_time,
+    #         )
+    #     )
+
+    # return response
     results = (
         db.query(
             Employee.employee_name,
@@ -253,6 +313,20 @@ def create_manager(request: ManagerRequest, db: Session = Depends(get_db)):
 @app.get("/manager/login", response_model=ManagerResponse)
 def login_manager(email: str, password: str, db: Session = Depends(get_db)):
     return authenticate_manager(db, email, password)
+
+@app.post("/manager/register", response_model=ManagerResponse)
+def register_manager(request: ManagerRegisterRequest, db: Session = Depends(get_db)):
+    manager = db.query(Manager).filter(Manager.manager_email == request.email).first()
+    if not manager:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is not registered as a manager"
+        )
+    manager.password_hash = hash_password(request.password)
+    db.add(manager)
+    db.commit()
+    db.refresh(manager)
+    return ManagerResponse(manager_id=manager.manager_id)
 
 # ---------------- Manager Employee Mapping ----------------
 @app.post("/assign-employee")

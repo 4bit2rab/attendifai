@@ -47,16 +47,18 @@ class ManagerRequest(BaseModel):
     manager_email: EmailStr
     manager_phone: str
     department: str
-    password_hash: str
 
+class ManagerRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    
 class ManagerResponse(BaseModel):
     token: str
     token_type: Literal["Bearer"] = "Bearer"
 
 class ManagerEmployeeMapCreate(BaseModel):
     manager_id: str
-    employee_id: str
-    
+    employee_id: str    
 
     class Config:   
         from_attributes = True
