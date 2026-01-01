@@ -306,6 +306,21 @@ def register_manager(request: ManagerRegisterRequest, db: Session = Depends(get_
     db.refresh(manager)
     return ManagerResponse(manager_id=manager.manager_id)
 
+# Get manager details
+@app.get("/manager/details")
+def get_manager_details(authorization: str = Header(...), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
+    manager = db.query(Manager).filter(Manager.manager_id == manager_id).first()
+    if not manager:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Manager not found"
+        )
+    return {
+        "manager_id": manager.manager_id,
+        "manager_name": manager.manager_name
+    }
+
 # ---------------- Manager Employee Mapping ----------------
 @app.post("/assign-employee")
 def assign_employee_to_manager(request: ManagerEmployeeMapCreate, db: Session = Depends(get_db)):

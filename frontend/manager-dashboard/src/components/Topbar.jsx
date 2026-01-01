@@ -1,6 +1,26 @@
 import { BellIcon, UserCircleIcon } from "lucide-react";
+import { useState, useEffect } from "react"
+import { getManagerDetails } from "../api/managerDetails";
 
 export default function Topbar() {
+    const [managerName, setManagerName] = useState("")
+
+    useEffect(() => {
+      const fetchManager = async () => {
+        try {
+          const response = await getManagerDetails()
+          setManagerName(response.manager_name)
+
+          // optional: cache it
+          sessionStorage.setItem("manager_name", response.manager_name)
+        } catch (err) {
+          console.error("Failed to fetch manager details", err)
+        }
+      }
+
+      fetchManager()
+    }, [])
+
   return (
     <header className="bg-white border-b px-6 py-4 flex items-center justify-between sticky top-0 z-40">
       {/* Page Title */}
@@ -22,7 +42,7 @@ export default function Topbar() {
         <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 px-3 py-1.5 rounded-full transition">
           <UserCircleIcon className="w-8 h-8 text-gray-600" />
           <span className="text-gray-800 font-medium hidden sm:block">
-            Manager
+            {managerName || "Manager"}
           </span>
         </div>
       </div>
