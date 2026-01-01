@@ -74,10 +74,9 @@
 
 import { useState } from "react"
 import { registerUser } from "../api/authApi"
-import { useNavigate, Link } from "react-router-dom"
+import { Link } from "react-router-dom"
 
 export default function Register() {
-  const navigate = useNavigate()
 
   const [form, setForm] = useState({
     name: "",
@@ -87,6 +86,7 @@ export default function Register() {
 
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState("")
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -115,6 +115,7 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setSuccess("")
 
     if (!validate()) return
 
@@ -122,8 +123,12 @@ export default function Register() {
 
     try {
       await registerUser(form)
-      alert("Registration successful!")
-      navigate("/", { replace: true })
+      setSuccess("Registration successful!!")
+      setForm({ name: "", email: "", password: "" }) 
+        setTimeout(() => {
+          setSuccess("")
+        }, 1500) 
+
     } catch {
       setErrors({ form: "Registration failed. Try again." })
       setForm({
@@ -139,6 +144,13 @@ export default function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+
+        {/* Success message */}
+        {success && (
+          <div className="mb-3 text-green-700 bg-green-100 border border-green-300 rounded p-2 text-sm text-center">
+            {success}
+          </div>
+        )}
 
         {/* Header */}
         <div className="text-center mb-6">

@@ -327,7 +327,6 @@ def assign_employee_to_manager(request: ManagerEmployeeMapCreate, db: Session = 
 @app.get("/manager/employees")
 def get_employees(authorization: str = Header(...), db: Session = Depends(get_db)):
     manager_id = get_user_id(authorization)
-    print("Manager ID:", manager_id)
     data = db.query(ManagerEmployeeMap).filter(
         ManagerEmployeeMap.manager_id == manager_id
     ).all()
