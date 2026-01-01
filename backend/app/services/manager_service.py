@@ -6,17 +6,16 @@ from backend.app.models.models import ManagerRequest
 from datetime import date, timedelta
 from sqlalchemy import func
 from collections import defaultdict
+from backend.app.core.token_generator import create_employee_token
 
 # Service to create a new manager record
 def create_manager_record(db_session, manager_request: ManagerRequest):
     try:
-        hashed_pwd = hash_password(manager_request.password_hash)
         new_manager = Manager(
             manager_name=manager_request.manager_name,
             manager_email=manager_request.manager_email,
             manager_phone=manager_request.manager_phone,
             department=manager_request.department,
-            password_hash=hashed_pwd
         )
 
         db_session.add(new_manager)
@@ -42,14 +41,22 @@ def create_manager_record(db_session, manager_request: ManagerRequest):
 # Service to get manager by email
 def authenticate_manager(db, email: str, password: str):
     manager = get_manager_by_email(db, email)
-    print("Manager fetched:", manager)
+
     if not manager:
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No manager found with the provided email"
+        )
 
     if not verify_password(password, manager.password_hash):
-        return None
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials"
+        )
+    
+    token = create_employee_token(manager.manager_id)
 
-    return manager
+    return {"token": token}
 
 # Service to get manager by email
 def get_manager_by_email(db_session, email: str):
@@ -144,3 +151,18 @@ def generate_employee_productivity_report(db_session, manager_id: str, start_dat
 
     return report
 
+def update_manager_password(db_session, manager_email: str, new_password: str):
+    manager = get_manager_by_email(db_session, manager_email)
+    if not manager:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Manager not found"
+        )
+
+    hashed_pwd = hash_password(new_password)
+    manager.password_hash = hashed_pwd
+
+    db_session.commit()
+    db_session.refresh(manager)
+
+    return {"message": "Password updated successfully"}
