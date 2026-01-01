@@ -1,156 +1,171 @@
-// src/pages/Employees.jsx
-import { useState, useEffect } from "react";
-import {
-  getEmployees
-} from "../api/employeesApi";
-import {
-  getShifts,
-  assignShiftToEmployee
-} from "../api/shiftsApi";
+import { useEffect, useState } from "react";
+import { UserPlus, X } from "lucide-react";
+import { createEmployee, getEmployees } from "../api/employeesApi";
 
-export default function EmployeesPage() {
+export default function Employees() {
   const [employees, setEmployees] = useState([]);
-  const [shifts, setShifts] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [selectedShift, setSelectedShift] = useState("");
-  const [editData, setEditData] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
+  const [formData, setFormData] = useState({
+    employee_name: "",
+    employee_email: "",
+    employee_phone: "",
+    shift_code: "",
+  });
+
+  // ✅ Load employees on mount
   useEffect(() => {
-    fetchEmployees();
-    fetchShifts();
+    loadEmployees();
   }, []);
 
-  const fetchEmployees = async () => {
-    const data = await getEmployees();
-    setEmployees(data);
+  const loadEmployees = async () => {
+    try {
+      const data = await getEmployees();
+      setEmployees(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load employees");
+    }
   };
 
-  const fetchShifts = async () => {
-    const data = await getShifts();
-    setShifts(data);
-  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  const openAssignModal = () => {
-    setSelectedEmployee("");
-    setSelectedShift("");
-    setEditData(null);
-    setIsModalOpen(true);
-  };
+    const result = await createEmployee(formData);
 
-  const handleEdit = (employee) => {
-    setSelectedEmployee(employee.id);
-    setSelectedShift(employee.shift_code || "");
-    setEditData(employee);
-    setIsModalOpen(true);
-  };
-
-  const handleSave = async () => {
-    if (!selectedEmployee || !selectedShift) {
-      alert("Select both employee and shift!");
+    if (!result) {
+      setError("Failed to create employee");
+      setLoading(false);
       return;
     }
-    const result = await assignShiftToEmployee(selectedEmployee, selectedShift);
-    if (result) {
-      alert("Shift assigned successfully!");
-      setIsModalOpen(false);
-      setSelectedEmployee("");
-      setSelectedShift("");
-      setEditData(null);
-      fetchEmployees(); // refresh table
-    }
+
+    await loadEmployees();
+    setShowForm(false);
+    setLoading(false);
   };
 
   return (
-    <div className="p-6">
-      {/* Top-right Assign Shift button */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Employees</h1>
+    <div className="p-6 relative">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-blue-600">Employees</h2>
+
         <button
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          onClick={openAssignModal}
+          onClick={() => setShowForm(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
         >
-          Assign Shift
+          <UserPlus size={18} />
+          Add Employee
         </button>
       </div>
 
-      {/* Employee Table */}
-      <table className="w-full border">
-        <thead>
-          <tr className="bg-gray-100">
-            <th className="border p-2">Employee</th>
-            <th className="border p-2">Shift</th>
-            <th className="border p-2">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map((emp) => (
-            <tr key={emp.id}>
-              <td className="border p-2">{emp.name}</td>
-              <td className="border p-2">{emp.shift_name || "-"}</td>
-              <td className="border p-2">
-                <button
-                  className="bg-yellow-400 px-2 py-1 rounded"
-                  onClick={() => handleEdit(emp)}
-                >
-                  Edit
-                </button>
-              </td>
+      {/* Error */}
+      {error && (
+        <p className="mb-4 text-red-600 font-medium">{error}</p>
+      )}
+
+      {/* Table */}
+      <div className="bg-white shadow rounded-lg overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-blue-50">
+            <tr>
+              <th className="p-3 text-left">Name</th>
+              <th className="p-3 text-left">Email</th>
+              <th className="p-3 text-left">Phone</th>
+              <th className="p-3 text-left">Shift</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {employees.length === 0 ? (
+              <tr>
+                <td colSpan="4" className="p-4 text-center text-gray-500">
+                  No employees found
+                </td>
+              </tr>
+            ) : (
+              employees.map((emp) => (
+                <tr key={emp.id ?? emp.employee_email} className="border-t">
+                  <td className="p-3">{emp.employee_name}</td>
+                  <td className="p-3">{emp.employee_email}</td>
+                  <td className="p-3">{emp.employee_phone}</td>
+                  <td className="p-3">{emp.shift_code}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-96 relative">
-            <h2 className="text-xl font-semibold mb-4">
-              {editData ? "Edit Shift" : "Assign Shift"}
-            </h2>
-
-            <label className="block mb-2">Employee</label>
-            <select
-              className="w-full border p-2 rounded mb-4"
-              value={selectedEmployee}
-              onChange={(e) => setSelectedEmployee(e.target.value)}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-md rounded-lg p-6 relative">
+            <button
+              onClick={() => setShowForm(false)}
+              className="absolute top-3 right-3 text-gray-500"
             >
-              <option value="">Select Employee</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name}
-                </option>
-              ))}
-            </select>
+              <X />
+            </button>
 
-            <label className="block mb-2">Shift</label>
-            <select
-              className="w-full border p-2 rounded mb-4"
-              value={selectedShift}
-              onChange={(e) => setSelectedShift(e.target.value)}
-            >
-              <option value="">Select Shift</option>
-              {shifts.map((shift) => (
-                <option key={shift.shift_code} value={shift.shift_code}>
-                  {shift.shift_name} ({shift.start_time} - {shift.end_time})
-                </option>
-              ))}
-            </select>
+            <h3 className="text-lg font-semibold mb-4">
+              Add Employee
+            </h3>
 
-            <div className="flex justify-end gap-2">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <input
+                placeholder="Name"
+                className="w-full border p-2 rounded"
+                value={formData.employee_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, employee_name: e.target.value })
+                }
+                required
+              />
+
+              <input
+                type="email"
+                placeholder="Email"
+                className="w-full border p-2 rounded"
+                value={formData.employee_email}
+                onChange={(e) =>
+                  setFormData({ ...formData, employee_email: e.target.value })
+                }
+                required
+              />
+
+              <input
+                placeholder="Phone"
+                className="w-full border p-2 rounded"
+                value={formData.employee_phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, employee_phone: e.target.value })
+                }
+                required
+              />
+
+              <input
+                placeholder="Shift Code"
+                className="w-full border p-2 rounded"
+                value={formData.shift_code}
+                onChange={(e) =>
+                  setFormData({ ...formData, shift_code: e.target.value })
+                }
+                required
+              />
+
               <button
-                className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400"
-                onClick={() => setIsModalOpen(false)}
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-2 rounded"
               >
-                Cancel
+                {loading ? "Saving..." : "Save"}
               </button>
-              <button
-                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                onClick={handleSave}
-              >
-                Save
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}
