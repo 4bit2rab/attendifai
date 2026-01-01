@@ -238,38 +238,9 @@ def get_employee(db: Session = Depends(get_db)):
 
 @app.get("/attendance", response_model=List[AttendanceResponse])
 def get_attendance(
-    date: str= Query(...) ,db: Session = Depends(get_db),
+    date: str= Query(...) ,authorization: str = Header(...),db: Session = Depends(get_db),
 ):
-    # employee_ids = (
-    #     db.query(ManagerEmployeeMap.employee_id)
-    #     .filter(ManagerEmployeeMap.manager_id == current_manager_id)
-    #     .all()
-    # )
-    # employee_ids = [eid[0] for eid in employee_ids]
-
-    # if not employee_ids:
-    #     return []
-    # logs = (
-    #     db.query(EmployeeActivityLog)
-    #     .filter(EmployeeActivityLog.employee_id.in_(employee_ids))
-    #     .all()
-    # )
-    # response = []
-    # employees = db.query(Employee).filter(Employee.employee_id.in_(employee_ids)).all()
-    # emp_map = {emp.employee_id: emp.employee_name for emp in employees}
-
-    # for log in logs:
-    #     response.append(
-    #         AttendanceResponse(
-    #             employee_name=emp_map.get(log.employee_id, "Unknown"),
-    #             log_date=log.log_date,
-    #             productive_time=log.productive_time,
-    #             idle_time=log.idle_time,
-    #             over_time=log.over_time,
-    #         )
-    #     )
-
-    # return response
+    manager_id = get_user_id(authorization)
     results = (
         db.query(
             Employee.employee_name,
@@ -282,7 +253,14 @@ def get_attendance(
             Employee,
             Employee.employee_id == EmployeeActivityLog.employee_id
         )
-        .filter(EmployeeActivityLog.log_date == date)
+        .join(
+            ManagerEmployeeMap,
+            ManagerEmployeeMap.employee_id == Employee.employee_id
+        )
+        .filter(
+            ManagerEmployeeMap.manager_id == manager_id,
+            EmployeeActivityLog.log_date == date
+        )
         .order_by(EmployeeActivityLog.log_date.desc())
         .all()
     )
