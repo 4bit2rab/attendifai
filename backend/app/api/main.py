@@ -16,6 +16,9 @@ from pydantic import BaseModel
 from jose import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.token_generator import get_user_id
+from backend.app.ai.productivity_score import calculate_productivity_score
+from backend.app.ai.anomaly_detection import detect_anomalies
+from backend.app.ai.productivity_trend import analyze_productivity_trend
 
 origins = [
     "http://localhost:5173",  # React dev server
@@ -346,10 +349,27 @@ def get_employees(authorization: str = Header(...), db: Session = Depends(get_db
     }
 
 @app.get("/employee/report")
-def get_employee_report(manager_id: str, start_date: date | None = Query(None), end_date: date | None = Query(None), db: Session = Depends(get_db)):
+def get_employee_report(authorization: str = Header(...), start_date: date | None = Query(None), end_date: date | None = Query(None), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
     return  generate_employee_productivity_report(db, manager_id, start_date, end_date)
 
 @app.put("/register/manger")
 def register_manager(manager_email: str, password: str, db: Session = Depends(get_db)):
     return update_manager_password(db,manager_email,password)
+
+@app.get("/manager/ai/productivity-insights")
+def productivity_insights(authorization: str = Header(...), start_date: date | None = Query(None), end_date: date | None = Query(None), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
+    data = generate_employee_productivity_report(db, manager_id, start_date, end_date)
+
+    scored = calculate_productivity_score(data)
+    anomalies = detect_anomalies(data)
+    trends = analyze_productivity_trend(data)
+
+    return {
+        "scores": scored,
+        "anomalies": anomalies,
+        "trends": trends
+    }
+
  

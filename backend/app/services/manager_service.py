@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from sqlalchemy import func
 from collections import defaultdict
 from backend.app.core.token_generator import create_employee_token
+from backend.app.dbmodels.attendancedb import Employee
 
 # Service to create a new manager record
 def create_manager_record(db_session, manager_request: ManagerRequest):
@@ -103,6 +104,10 @@ def generate_employee_productivity_report(db_session, manager_id: str, start_dat
         EmployeeActivityLog.employee_id.in_(employee_ids)
     )
 
+    # query = db_session.query(Employee).filter(
+    #     Employee.employee_id.in_(employee_ids)
+    # )
+
     if start_date:
         query = query.filter(EmployeeActivityLog.log_date >= start_date)
     if end_date:
@@ -144,6 +149,7 @@ def generate_employee_productivity_report(db_session, manager_id: str, start_dat
     for employee_id in employee_ids:
         report.append({
             "employee_id": employee_id,
+            "employee_name": db_session.query(Employee).filter(Employee.employee_id == employee_id).first().employee_name,
             "total_productive_hours": employee_total_map.get(employee_id, 0),
             "logs": employee_logs_map.get(employee_id, [])
         })

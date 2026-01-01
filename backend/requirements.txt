@@ -6,3 +6,6 @@ pymysql
 pydantic
 passlib[argon2]
 argon2-cffi
+scikit-learn 
+pandas 
+numpy
