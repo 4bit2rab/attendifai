@@ -7,6 +7,8 @@ import Attendance from "./pages/Attendance";
 import Shifts from "./pages/Shifts";
 import Employees from "./pages/Employees";
 import DashboardLayout from "./layout/DashboardLayout";
+import Report from "./pages/Report";
+
 
 function App() {
   return (
@@ -22,6 +24,7 @@ function App() {
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/shifts" element={<Shifts />} />
           <Route path="/employees" element={<Employees />} />
+          <Route path="/report" element={<Report />} />
         </Route>
       </Routes>
     </BrowserRouter>

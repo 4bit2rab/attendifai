@@ -57,7 +57,7 @@ export default function Attendance() {
       </div>
 
       {/* Attendance Table */}
-      <div className="bg-white shadow rounded-xl overflow-x-auto">
+      <div className="bg-white shadow rounded-xl overflow-hidden">
         {loading ? (
           <p className="p-4 text-gray-500">Loading attendance...</p>
         ) : (
