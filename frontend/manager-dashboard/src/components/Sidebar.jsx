@@ -7,6 +7,8 @@ import {
   BarChartIcon,
   LogOutIcon,
 } from "lucide-react";
+import { logout } from "../utils/logout";
+import { useNavigate } from "react-router-dom"
 
 export default function Sidebar() {
   const links = [
@@ -16,6 +18,8 @@ export default function Sidebar() {
     { name: "Employees", path: "/employees", icon: UsersIcon },
     { name: "Monthly Report", path: "/report", icon: BarChartIcon },
   ];
+  const navigate = useNavigate()
+
 
   return (
     <aside className="w-64 bg-gradient-to-b from-blue-700 to-blue-800 text-white flex flex-col shadow-xl">
@@ -47,7 +51,7 @@ export default function Sidebar() {
 
       {/* Logout */}
       <div className="p-4 border-t border-blue-600">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100 hover:bg-red-600 hover:text-white transition">
+        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100 hover:bg-red-600 hover:text-white transition" onClick={() => logout(navigate)}>
           <LogOutIcon className="w-5 h-5" />
           Logout
         </button>

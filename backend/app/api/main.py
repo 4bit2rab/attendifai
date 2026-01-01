@@ -279,11 +279,9 @@ def get_attendance(
         for row in results
     ]
 
-
-
-# ---------------- Manager ----------------
+# ---------------- Manager ---------------
 # Endpoint to create a new manager  
-@app.post("/create-manager", response_model=ManagerResponse, status_code=201)
+@app.post("/create-manager", status_code=201)
 def create_manager(request: ManagerRequest, db: Session = Depends(get_db)):
     return create_manager_record(db, request)
 
@@ -292,7 +290,7 @@ def create_manager(request: ManagerRequest, db: Session = Depends(get_db)):
 def login_manager(email: str, password: str, db: Session = Depends(get_db)):
     return authenticate_manager(db, email, password)
 
-@app.post("/manager/register", response_model=ManagerResponse)
+@app.post("/manager/register")
 def register_manager(request: ManagerRegisterRequest, db: Session = Depends(get_db)):
     manager = db.query(Manager).filter(Manager.manager_email == request.email).first()
     if not manager:
@@ -304,7 +302,22 @@ def register_manager(request: ManagerRegisterRequest, db: Session = Depends(get_
     db.add(manager)
     db.commit()
     db.refresh(manager)
-    return ManagerResponse(manager_id=manager.manager_id)
+    return manager
+
+# Get manager details
+@app.get("/manager/details")
+def get_manager_details(authorization: str = Header(...), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
+    manager = db.query(Manager).filter(Manager.manager_id == manager_id).first()
+    if not manager:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Manager not found"
+        )
+    return {
+        "manager_id": manager.manager_id,
+        "manager_name": manager.manager_name
+    }
 
 # ---------------- Manager Employee Mapping ----------------
 @app.post("/assign-employee")
@@ -314,7 +327,6 @@ def assign_employee_to_manager(request: ManagerEmployeeMapCreate, db: Session = 
 @app.get("/manager/employees")
 def get_employees(authorization: str = Header(...), db: Session = Depends(get_db)):
     manager_id = get_user_id(authorization)
-    print("Manager ID:", manager_id)
     data = db.query(ManagerEmployeeMap).filter(
         ManagerEmployeeMap.manager_id == manager_id
     ).all()
