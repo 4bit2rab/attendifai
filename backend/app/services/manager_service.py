@@ -10,13 +10,11 @@ from collections import defaultdict
 # Service to create a new manager record
 def create_manager_record(db_session, manager_request: ManagerRequest):
     try:
-        hashed_pwd = hash_password(manager_request.password_hash)
         new_manager = Manager(
             manager_name=manager_request.manager_name,
             manager_email=manager_request.manager_email,
             manager_phone=manager_request.manager_phone,
             department=manager_request.department,
-            password_hash=hashed_pwd
         )
 
         db_session.add(new_manager)
