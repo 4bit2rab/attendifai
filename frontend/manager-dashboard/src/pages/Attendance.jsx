@@ -38,73 +38,90 @@ export default function Attendance() {
     over_time: Math.floor(r.over_time / 60),
   }));
 
+  // Row colors for alternating effect
+  const rowColors = ["bg-white", "bg-blue-50"];
+
   return (
-    <div className="p-4">
+    <div className="p-6 space-y-6">
       <h2 className="text-2xl font-bold mb-4 text-blue-600">Daily Attendance</h2>
 
       {/* Date Picker */}
-      <div className="mb-6 flex items-center gap-2">
+      <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <label className="font-medium">Select Date:</label>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="border p-2 rounded hover:border-blue-400 transition"
+          className="border p-2 rounded-lg hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
         />
       </div>
 
-      {/* Table */}
-      {loading ? (
-        <p>Loading attendance...</p>
-      ) : (
-        <table className="w-full bg-white shadow rounded mb-8">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-3 text-left">Employee</th>
-              <th className="p-3 text-left">Date</th>
-              <th className="p-3 text-left">Productive</th>
-              <th className="p-3 text-left">Idle</th>
-              <th className="p-3 text-left">Overtime</th>
-            </tr>
-          </thead>
-          <tbody>
-            <AnimatePresence>
-              {records.length === 0 ? (
-                <motion.tr
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  <td colSpan="5" className="p-3 text-center">
-                    No records found
-                  </td>
-                </motion.tr>
-              ) : (
-                records.map((row, index) => (
+      {/* Attendance Table */}
+      <div className="bg-white shadow rounded-xl overflow-x-auto">
+        {loading ? (
+          <p className="p-4 text-gray-500">Loading attendance...</p>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-3 text-left text-gray-700 uppercase text-sm">Employee</th>
+                <th className="p-3 text-left text-gray-700 uppercase text-sm">Date</th>
+                <th className="p-3 text-left text-gray-700 uppercase text-sm">Productive</th>
+                <th className="p-3 text-left text-gray-700 uppercase text-sm">Idle</th>
+                <th className="p-3 text-left text-gray-700 uppercase text-sm">Overtime</th>
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence>
+                {records.length === 0 ? (
                   <motion.tr
-                    key={index}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    whileHover={{ scale: 1.02, backgroundColor: "#f0f9ff" }}
-                    className="border-t transition"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                   >
-                    <td className="p-3">{row.employee_name}</td>
-                    <td className="p-3">{row.log_date}</td>
-                    <td className="p-3">{formatTime(row.productive_time)}</td>
-                    <td className="p-3">{formatTime(row.idle_time)}</td>
-                    <td className="p-3">{formatTime(row.over_time)}</td>
+                    <td colSpan="5" className="p-4 text-center text-gray-500">
+                      No records found
+                    </td>
                   </motion.tr>
-                ))
-              )}
-            </AnimatePresence>
-          </tbody>
-        </table>
-      )}
+                ) : (
+                  records.map((row, index) => (
+                    <motion.tr
+                      key={index}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      whileHover={{ scale: 1.02, backgroundColor: "#e0f2fe" }}
+                      className={`border-t ${rowColors[index % rowColors.length]} transition-colors duration-200`}
+                    >
+                      <td className="p-3 font-medium">{row.employee_name}</td>
+                      <td className="p-3">{row.log_date}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 rounded-full bg-green-100 text-green-800">
+                          {formatTime(row.productive_time)}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">
+                          {formatTime(row.idle_time)}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 rounded-full bg-red-100 text-red-800">
+                          {formatTime(row.over_time)}
+                        </span>
+                      </td>
+                    </motion.tr>
+                  ))
+                )}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        )}
+      </div>
 
-      {/* Chart */}
+      {/* Attendance Chart */}
       {records.length > 0 && (
-        <div className="h-96 bg-white shadow rounded p-4">
+        <div className="h-96 bg-white shadow rounded-xl p-4">
           <h3 className="text-lg font-semibold mb-4">Time Distribution (minutes)</h3>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
@@ -115,8 +132,8 @@ export default function Attendance() {
               <YAxis label={{ value: "Minutes", angle: -90, position: "insideLeft" }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="productive_time" fill="#4ade80" name="Productive" />
-              <Bar dataKey="idle_time" fill="#facc15" name="Idle" />
+              <Bar dataKey="productive_time" fill="#22c55e" name="Productive" />
+              <Bar dataKey="idle_time" fill="#eab308" name="Idle" />
               <Bar dataKey="over_time" fill="#f87171" name="Overtime" />
             </BarChart>
           </ResponsiveContainer>
