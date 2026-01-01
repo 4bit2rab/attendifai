@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import time,date
-
+from typing import Literal
 
 class ProductivityPayload(BaseModel):
     log_date: date
@@ -50,9 +50,8 @@ class ManagerRequest(BaseModel):
     password_hash: str
 
 class ManagerResponse(BaseModel):
-    manager_id: str
-
-from pydantic import BaseModel
+    token: str
+    token_type: Literal["Bearer"] = "Bearer"
 
 class ManagerEmployeeMapCreate(BaseModel):
     manager_id: str

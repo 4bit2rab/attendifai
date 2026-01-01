@@ -8,17 +8,17 @@ from sqlalchemy.orm import Session
 from backend.app.db.mySqlConfig import sessionLocal
 from fastapi import Depends, HTTPException, status, Query
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
-from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report
+from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
 from backend.app.db.mySqlConfig import Base, engine
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
 from typing import List
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,EmployeeToken
 from datetime import date
-
 from pydantic import BaseModel
 from jose import jwt
 import sqlite3
 from fastapi.middleware.cors import CORSMiddleware
+from backend.app.core.token_generator import get_user_id
 
 origins = [
     "http://localhost:5173",  # React dev server
@@ -252,24 +252,17 @@ def create_manager(request: ManagerRequest, db: Session = Depends(get_db)):
 # Endpoint for manager login
 @app.get("/manager/login", response_model=ManagerResponse)
 def login_manager(email: str, password: str, db: Session = Depends(get_db)):
-    manager = authenticate_manager(db, email, password)
-    print("Authenticated manager:", manager)
-    if not manager:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
-        )
-    return ManagerResponse(
-        manager_id=manager.manager_id
-    )
+    return authenticate_manager(db, email, password)
 
 # ---------------- Manager Employee Mapping ----------------
 @app.post("/assign-employee")
 def assign_employee_to_manager(request: ManagerEmployeeMapCreate, db: Session = Depends(get_db)):
     return assign_employee_to_manager_record(db, request)
 
-@app.get("/{manager_id}/employees")
-def get_employees(manager_id: str, db: Session = Depends(get_db)):
+@app.get("/manager/employees")
+def get_employees(authorization: str = Header(...), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
+    print("Manager ID:", manager_id)
     data = db.query(ManagerEmployeeMap).filter(
         ManagerEmployeeMap.manager_id == manager_id
     ).all()
@@ -280,7 +273,9 @@ def get_employees(manager_id: str, db: Session = Depends(get_db)):
             {
                 "employee_id": m.employee.employee_id,
                 "employee_name": m.employee.employee_name,
-                "employee_email": m.employee.employee_email
+                "employee_email": m.employee.employee_email,
+                "employee_phone": m.employee.employee_phone,
+                "shift_code": m.employee.shift_code,
             }
             for m in data
         ]
@@ -289,3 +284,8 @@ def get_employees(manager_id: str, db: Session = Depends(get_db)):
 @app.get("/employee/report")
 def get_employee_report(manager_id: str, start_date: date | None = Query(None), end_date: date | None = Query(None), db: Session = Depends(get_db)):
     return  generate_employee_productivity_report(db, manager_id, start_date, end_date)
+
+@app.put("/register/manger")
+def register_manager(manager_email: str, password: str, db: Session = Depends(get_db)):
+    return update_manager_password(db,manager_email,password)
+ 

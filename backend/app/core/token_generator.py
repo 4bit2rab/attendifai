@@ -10,7 +10,14 @@ def create_employee_token(employee_id: int):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-
+def get_user_id(authorization: str = Header(...)):
+    try:
+        token = authorization.split(" ")[1]
+        print(token)
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload["employee_id"]
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 
 
