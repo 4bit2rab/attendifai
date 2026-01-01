@@ -8,11 +8,13 @@ export default function DashboardLayout() {
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col">
+        {/* Topbar */}
         <Topbar />
 
-        <main className="flex-1 overflow-auto p-6">
+        {/* Page content */}
+        <main className="p-6 overflow-auto">
           <Outlet />
         </main>
       </div>
