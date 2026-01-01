@@ -16,7 +16,7 @@ export default function Sidebar() {
     { name: "Attendance", path: "/attendance", icon: CalendarCheckIcon },
     { name: "Shifts", path: "/shifts", icon: ClockIcon },
     { name: "Employees", path: "/employees", icon: UsersIcon },
-    { name: "Monthly Report", path: "/reports/monthly", icon: BarChartIcon },
+    { name: "Monthly Report", path: "/report", icon: BarChartIcon },
   ];
   const navigate = useNavigate()
 

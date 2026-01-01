@@ -353,6 +353,51 @@ def get_employee_report(authorization: str = Header(...), start_date: date | Non
     manager_id = get_user_id(authorization)
     return  generate_employee_productivity_report(db, manager_id, start_date, end_date)
 
+@app.get("/report", response_model=List[AttendanceResponse])
+def get_monthly_report(
+    authorization: str = Header(...),
+    year: int = Query(..., ge=2000),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+):
+    manager_id = get_user_id(authorization)
+    start_date = date(year, month, 1)
+
+    if month == 12:
+        end_date = date(year + 1, 1, 1)
+    else:
+        end_date = date(year, month + 1, 1)
+
+    results = (
+        db.query(
+            Employee.employee_name,
+            EmployeeActivityLog.log_date,
+            EmployeeActivityLog.productive_time,
+            EmployeeActivityLog.idle_time,
+            EmployeeActivityLog.over_time,
+        )
+        .join(
+            ManagerEmployeeMap,
+            ManagerEmployeeMap.employee_id == Employee.employee_id
+        )
+        .join(
+            EmployeeActivityLog,
+            EmployeeActivityLog.employee_id == Employee.employee_id
+        )
+        .filter(
+            ManagerEmployeeMap.manager_id == manager_id,
+            EmployeeActivityLog.log_date >= start_date,
+            EmployeeActivityLog.log_date < end_date,
+        )
+        .order_by(
+            Employee.employee_name,
+            EmployeeActivityLog.log_date
+        )
+        .all()
+    )
+
+    return results
+
 @app.put("/register/manger")
 def register_manager(manager_email: str, password: str, db: Session = Depends(get_db)):
     return update_manager_password(db,manager_email,password)
