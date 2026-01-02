@@ -52,9 +52,11 @@ export default function Topbar() {
         {/* Notification */}
         <button className="relative p-2 rounded-full hover:bg-gray-100 transition">
           <BellIcon className="w-6 h-6 text-gray-600" />
-          <span className="absolute -top-1 -right-1 w-5 h-5 text-xs flex items-center justify-center bg-red-500 text-white rounded-full">
-            {overtimeCount || 0}
-          </span>
+            {overtimeCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 text-xs flex items-center justify-center bg-red-500 text-white rounded-full">
+                {overtimeCount}
+              </span>
+            )}
         </button>
 
         {/* Profile */}
