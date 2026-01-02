@@ -1,14 +1,16 @@
 import { BellIcon, UserCircleIcon } from "lucide-react";
 import { useState, useEffect } from "react"
 import { getManagerDetails } from "../api/managerDetails";
+import { getOvertime } from "../api/overtimeApi";
 
 export default function Topbar() {
     const [managerName, setManagerName] = useState("")
+    const [overtimeCount, setOvertimeCount] = useState(0)
 
     useEffect(() => {
       const fetchManager = async () => {
         try {
-          const response = await getManagerDetails()
+          const response = await getOvertime()
           setManagerName(response.manager_name)
 
           // optional: cache it
@@ -19,6 +21,23 @@ export default function Topbar() {
       }
 
       fetchManager()
+    }, [])
+
+     useEffect(() => {
+      const fetchOvertimeCount = async () => {
+        try {
+          const response = await getManagerDetails()
+          const count = response.length;
+          setOvertimeCount(count)
+
+          // optional: cache it
+          sessionStorage.setItem("manager_name", response.manager_name)
+        } catch (err) {
+          console.error("Failed to fetch manager details", err)
+        }
+      }
+
+      fetchOvertimeCount()
     }, [])
 
   return (
@@ -34,7 +53,7 @@ export default function Topbar() {
         <button className="relative p-2 rounded-full hover:bg-gray-100 transition">
           <BellIcon className="w-6 h-6 text-gray-600" />
           <span className="absolute -top-1 -right-1 w-5 h-5 text-xs flex items-center justify-center bg-red-500 text-white rounded-full">
-            3
+            {overtimeCount || 0}
           </span>
         </button>
 
