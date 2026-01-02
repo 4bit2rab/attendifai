@@ -1,9 +1,14 @@
 // src/pages/Dashboard.jsx
 import { useEffect, useState } from "react";
-import { Users, UserCheck, UserX, Clock } from "lucide-react";
-import { getEmployees } from "../api/employeesApi"; // import your API
+import { Users, UserCheck, UserX, Clock, TrendingUp } from "lucide-react";
+import { getEmployees } from "../api/employeesApi";
+import { getPredictedProductivity } from "../api/productivityApi";
+import { getEmployeeRanking } from "../api/rankingApi";
+import { getDefaultDateRange } from "../utils/dateUtils";
 
-// Placeholder components for now
+/* -----------------------------
+   Placeholder Components
+------------------------------ */
 function AttendanceChart() {
   return (
     <div className="h-48 flex items-center justify-center bg-gray-100 rounded-lg">
@@ -22,28 +27,36 @@ function RecentActivity() {
   );
 }
 
+/* -----------------------------
+   Main Dashboard
+------------------------------ */
 export default function Dashboard() {
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [presentToday, setPresentToday] = useState(0);
   const [absentToday, setAbsentToday] = useState(0);
   const [lateCheckins, setLateCheckins] = useState(0);
 
+  const [predictions, setPredictions] = useState([]);
+  const [topEmployees, setTopEmployees] = useState([]);
+
+
+  /* -----------------------------
+     Load Employees
+  ------------------------------ */
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const employees = await getEmployees(); // call your API
-        setTotalEmployees(Array.isArray(employees) ? employees.length : 0);
+        const employees = await getEmployees();
+        setTotalEmployees(employees.length);
 
-        // Example: calculate stats dynamically
         let present = 0;
         let absent = 0;
         let late = 0;
 
         employees.forEach((emp) => {
-          if (emp.status === "present") present += 1;
-          else if (emp.status === "absent") absent += 1;
-
-          if (emp.isLate) late += 1;
+          if (emp.status === "present") present++;
+          if (emp.status === "absent") absent++;
+          if (emp.isLate) late++;
         });
 
         setPresentToday(present);
@@ -57,6 +70,65 @@ export default function Dashboard() {
     loadEmployees();
   }, []);
 
+  /* -----------------------------
+     Load Productivity Predictions
+  ------------------------------ */
+  useEffect(() => {
+    const loadPredictions = async () => {
+      try {
+        const data = await getPredictedProductivity();
+        setPredictions(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Prediction API error:", err);
+        setPredictions([]);
+      }
+    };
+
+    loadPredictions();
+  }, []);
+
+   /* -----------------------------
+     Load Employee Rankings
+  ------------------------------ */
+
+  useEffect(() => {
+    const loadRankings = async () => {
+      try {
+        const { start_date, end_date } = getDefaultDateRange();
+        const data = await getEmployeeRanking(start_date, end_date);
+        setTopEmployees(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Ranking API error:", err);
+        setTopEmployees([]);
+      }
+    };
+
+    loadRankings();
+  }, []);
+
+  /* -----------------------------
+     Helpers
+  ------------------------------ */
+  const getConfidenceStyle = (confidence) => {
+    switch (confidence) {
+      case "High":
+        return "bg-green-100 text-green-700";
+      case "Medium":
+        return "bg-yellow-100 text-yellow-700";
+      default:
+        return "bg-red-100 text-red-700";
+    }
+  };
+
+  const getBarColor = (value) => {
+    if (value >= 32) return "bg-green-500"; // 80%+
+    if (value >= 20) return "bg-yellow-500";
+    return "bg-red-500";
+  };
+
+  /* -----------------------------
+     Stats
+  ------------------------------ */
   const stats = [
     {
       title: "Total Employees",
@@ -88,10 +160,9 @@ export default function Dashboard() {
     <div className="p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500">
-          Overview of attendance and productivity.
-        </p>
+        <h1 className="text-2xl font-bold mb-4 text-blue-600">
+          Manager Dashboard
+        </h1>
       </div>
 
       {/* Stats */}
@@ -99,7 +170,7 @@ export default function Dashboard() {
         {stats.map((stat, index) => (
           <div
             key={index}
-            className={`${stat.bg} rounded-xl shadow-sm p-5 flex items-center justify-between`}
+            className={`${stat.bg} rounded-xl shadow-sm p-5 flex justify-between`}
           >
             <div>
               <p className="text-sm text-white">{stat.title}</p>
@@ -115,18 +186,114 @@ export default function Dashboard() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Weekly Attendance
-          </h2>
+          <h2 className="font-semibold mb-4">Weekly Attendance</h2>
           <AttendanceChart />
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Recent Activity
+          <h2 className="font-semibold mb-4">
+            🏆 Top 5 Employees
           </h2>
-          <RecentActivity />
+
+          {topEmployees.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No ranking data available.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {topEmployees.map((emp) => (
+                <div
+                  key={emp.employee_id}
+                  className="border rounded-lg p-4"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <p className="font-medium text-gray-800">
+                        #{emp.rank} {emp.employee_name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Performance: {emp.performance}
+                      </p>
+                    </div>
+
+                    <span className="text-sm font-semibold text-indigo-600">
+                      {emp.productivity_score.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-indigo-600 h-3 rounded-full"
+                      style={{ width: `${emp.productivity_score}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* 🔮 Productivity Prediction Section */}
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="text-indigo-600" />
+          <h2 className="text-lg font-semibold">
+            Next Week Productivity Prediction
+          </h2>
+        </div>
+
+        {predictions.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            No prediction data available.
+          </p>
+        ) : (
+          <div className="space-y-5">
+            {predictions.map((emp) => {
+              const percentage = Math.min(
+                (emp.predicted_next_week_productive_hours / 40) * 100,
+                100
+              );
+
+              return (
+                <div
+                  key={emp.employee_id}
+                  className="border rounded-lg p-4"
+                >
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="font-medium text-gray-800">
+                      {emp.employee_name}
+                    </p>
+
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full ${getConfidenceStyle(
+                        emp.confidence
+                      )}`}
+                    >
+                      {emp.confidence}
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className={`${getBarColor(
+                        emp.predicted_next_week_productive_hours
+                      )} h-3 rounded-full`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+
+                  <p className="text-xs text-gray-600 mt-1">
+                    Predicted Hours:{" "}
+                    <strong>
+                      {emp.predicted_next_week_productive_hours.toFixed(1)}hrs
+                    </strong>
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
