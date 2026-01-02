@@ -71,3 +71,8 @@ class ApprovalItem(BaseModel):
 
 class OvertimeApprovalPayload(BaseModel):
     approvals: List[ApprovalItem]
+
+class MonthlySalaryResponse(BaseModel):
+    employee_id: str
+    employee_name: str
+    total_salary: float
