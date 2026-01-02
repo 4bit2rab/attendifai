@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Time, Date, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Time, Date, ForeignKey, UniqueConstraint,Boolean,Float
 from sqlalchemy.orm import relationship
 from backend.app.db.mySqlConfig import Base
 import uuid
@@ -12,6 +12,7 @@ class Employee(Base):
     employee_email = Column(String(100), unique=True, index=True)
     employee_phone = Column(String(20), unique=True, index=True, nullable=False)
     shift_code = Column(String(30),nullable=False)
+
 
     managers = relationship(
     "ManagerEmployeeMap",
@@ -44,6 +45,8 @@ class EmployeeActivityLog(Base):
     productive_time = Column(Integer,nullable=False,default=0)
     idle_time = Column(Integer,nullable=False,default=0)
     over_time = Column(Integer,nullable=False,default=0)
+    overtime_approval = Column(Boolean,nullable=True,default=False)
+    per_day_base_salary=Column(Integer,nullable=False,default=0)
 
 # Database model for manager details
 class Manager(Base):
@@ -77,4 +80,9 @@ class ManagerEmployeeMap(Base):
         UniqueConstraint("manager_id", "employee_id", name="uq_manager_employee"),
     )
 
+class EmployeeBaseSalary(Base):
+    __tablename__ = "employee_base_salary"
+
+    employee_id = Column(String(50),nullable=False,primary_key=True)
+    hourly_salary=Column(Float,nullable=False,default=0)
 
