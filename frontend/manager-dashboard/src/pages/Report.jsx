@@ -47,67 +47,61 @@ export default function Report() {
     map[r.employee_name][r.log_date] = r;
   });
 
-  /* ---------- EXCEL EXPORT ---------- */
+  /* ---------- Excel Export (unchanged) ---------- */
   const downloadExcel = () => {
-  const workbook = XLSX.utils.book_new();
+    const workbook = XLSX.utils.book_new();
 
-  // 1️⃣ Build header rows
-  const topHeader = ["Employee"];
-  const subHeader = [""];
+    const topHeader = ["Employee"];
+    const subHeader = [""];
 
-  for (let d = 1; d <= days; d++) {
-    const dateObj = new Date(year, month - 1, d);
-    const monthName = dateObj.toLocaleString("default", { month: "short" });
-    const weekday = dateObj.toLocaleString("default", { weekday: "short" }); // e.g., "Thu"
-
-    topHeader.push(`${monthName} ${d} - ${weekday}`, "", ""); // merge 3 columns
-    subHeader.push("Productive", "Idle", "Overtime");
-  }
-
-  // 2️⃣ Build data rows
-  const rows = employees.map((emp) => {
-    const row = [emp];
     for (let d = 1; d <= days; d++) {
-      const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      const r = map[emp][dateStr];
+      const dateObj = new Date(year, month - 1, d);
+      const monthName = dateObj.toLocaleString("default", { month: "short" });
+      const weekday = dateObj.toLocaleString("default", { weekday: "short" });
 
-      const productive = r ? (r.productive_time / 3600).toFixed(2) : 0;
-      const idle = r ? (r.idle_time / 3600).toFixed(2) : 0;
-      const overtime = r ? (r.over_time / 3600).toFixed(2) : 0;
-
-      row.push(productive, idle, overtime);
+      topHeader.push(`${monthName} ${d} - ${weekday}`, "", "");
+      subHeader.push("Productive", "Idle", "Overtime");
     }
-    return row;
-  });
 
-  // 3️⃣ Combine header + data
-  const worksheetData = [topHeader, subHeader, ...rows];
+    const rows = employees.map((emp) => {
+      const row = [emp];
+      for (let d = 1; d <= days; d++) {
+        const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const r = map[emp][dateStr];
 
-  const ws = XLSX.utils.aoa_to_sheet(worksheetData);
-
-  // 4️⃣ Merge top header cells for each date
-  let colIndex = 1; // skip Employee column
-  for (let d = 1; d <= days; d++) {
-    ws["!merges"] = ws["!merges"] || [];
-    ws["!merges"].push({
-      s: { r: 0, c: colIndex }, // start cell
-      e: { r: 0, c: colIndex + 2 }, // merge 3 columns
+        row.push(
+          r ? (r.productive_time / 3600).toFixed(2) : 0,
+          r ? (r.idle_time / 3600).toFixed(2) : 0,
+          r ? (r.over_time / 3600).toFixed(2) : 0
+        );
+      }
+      return row;
     });
-    colIndex += 3;
-  }
 
-  XLSX.utils.book_append_sheet(workbook, ws, "Monthly Report");
-  XLSX.writeFile(workbook, `Monthly_Report_${year}_${String(month).padStart(2, "0")}.xlsx`);
-};
+    const ws = XLSX.utils.aoa_to_sheet([topHeader, subHeader, ...rows]);
 
+    let colIndex = 1;
+    for (let d = 1; d <= days; d++) {
+      ws["!merges"] = ws["!merges"] || [];
+      ws["!merges"].push({
+        s: { r: 0, c: colIndex },
+        e: { r: 0, c: colIndex + 2 },
+      });
+      colIndex += 3;
+    }
+
+    XLSX.utils.book_append_sheet(workbook, ws, "Monthly Report");
+    XLSX.writeFile(
+      workbook,
+      `Monthly_Report_${year}_${String(month).padStart(2, "0")}.xlsx`
+    );
+  };
 
   return (
     <div className="p-6 space-y-6 overflow-x-hidden">
-      <h2 className="text-2xl font-bold text-blue-600">
-        Monthly Report
-      </h2>
+      <h2 className="text-2xl font-bold text-blue-600">Monthly Report</h2>
 
-      {/* ===== Controls ===== */}
+      {/* Controls */}
       <div className="flex gap-4 items-center flex-wrap">
         <label>Year</label>
         <input
@@ -142,7 +136,7 @@ export default function Report() {
         </button>
       </div>
 
-      {/* ===== GRID (UNCHANGED) ===== */}
+      {/* GRID */}
       {loading ? (
         <p className="text-gray-500">Loading report...</p>
       ) : (
@@ -167,9 +161,7 @@ export default function Report() {
               <tbody>
                 {employees.map((e) => (
                   <tr key={e}>
-                    <td className="border p-2 font-medium">
-                      {e}
-                    </td>
+                    <td className="border p-2 font-medium">{e}</td>
                   </tr>
                 ))}
               </tbody>
@@ -210,32 +202,48 @@ export default function Report() {
                   {employees.map((emp) => (
                     <motion.tr key={emp}>
                       {Array.from({ length: days }, (_, i) => {
-                        const date = `${year}-${String(month).padStart(
-                          2,
-                          "0"
-                        )}-${String(i + 1).padStart(2, "0")}`;
+                        const date = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
                         const r = map[emp][date];
+
+                        if (!r)
+                          return <td key={i} className="border h-10" />;
+
+                        const total =
+                          r.productive_time +
+                          r.idle_time +
+                          r.over_time;
+
+                        const prod = (r.productive_time / total) * 100;
+                        const idle = (r.idle_time / total) * 100;
+                        const over = (r.over_time / total) * 100;
+
                         return (
-                          <td
-                            key={i}
-                            className="border h-10 bg-gray-50"
-                          >
-                            {r && (
-                              <div className="relative h-full">
+                          <td key={i} className="border h-10 relative group">
+                            <div className="flex items-center justify-center h-full">
+                                <div className="flex w-full h-6 bg-gray-200 rounded overflow-hidden">
                                 <div
-                                  className="absolute left-0 top-0 h-full bg-green-500"
-                                  style={{
-                                    width: `${
-                                      (r.productive_time /
-                                        (r.productive_time +
-                                          r.idle_time +
-                                          r.over_time)) *
-                                      100
-                                    }%`,
-                                  }}
+                                  className="bg-green-500"
+                                  style={{ width: `${prod}%` }}
+                                />
+                                <div
+                                  className="bg-orange-400"
+                                  style={{ width: `${idle}%` }}
+                                />
+                                <div
+                                  className="bg-red-500"
+                                  style={{ width: `${over}%` }}
                                 />
                               </div>
-                            )}
+                            </div>
+
+
+                            {/* Tooltip */}
+                            <div className="absolute z-30 hidden group-hover:block bg-black text-white text-xs rounded p-2 
+                                          left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap shadow-lg">
+                            <div>Productive: {formatTime(r.productive_time)}</div>
+                            <div>Idle: {formatTime(r.idle_time)}</div>
+                            <div>Overtime: {formatTime(r.over_time)}</div>
+                          </div>
                           </td>
                         );
                       })}
@@ -248,7 +256,7 @@ export default function Report() {
         </div>
       )}
 
-      {/* ===== LEGEND ===== */}
+      {/* Legend */}
       <div className="flex gap-6 flex-wrap">
         <span className="flex items-center gap-2">
           <div className="w-4 h-4 bg-green-500 rounded" /> Productive
@@ -258,6 +266,12 @@ export default function Report() {
         </span>
         <span className="flex items-center gap-2">
           <div className="w-4 h-4 bg-red-500 rounded" /> Overtime
+        </span>
+        <span className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-yellow-100 rounded" /> Saturday
+        </span>
+        <span className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-red-100 rounded" /> Sunday
         </span>
       </div>
     </div>
