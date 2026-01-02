@@ -8,6 +8,8 @@ from sqlalchemy import func
 from collections import defaultdict
 from backend.app.core.token_generator import create_employee_token
 from backend.app.dbmodels.attendancedb import Employee
+from typing import List
+from backend.app.models.models import EmployeeInput
 
 # Service to create a new manager record
 def create_manager_record(db_session, manager_request: ManagerRequest):
@@ -192,3 +194,26 @@ def update_manager_password(db_session, manager_email: str, new_password: str):
     db_session.refresh(manager)
 
     return {"message": "Password updated successfully"}
+
+def calculate_total_productivity(employees: List[EmployeeInput]):
+    totals = {
+        "total_productive_seconds": 0,
+        "total_idle_seconds": 0,
+        "total_overtime_seconds": 0
+    }
+
+    for emp in employees:
+        for log in emp.logs:
+            totals["total_productive_seconds"] += log.productive_time or 0
+            totals["total_idle_seconds"] += log.idle_time or 0
+            totals["total_overtime_seconds"] += log.over_time or 0
+
+    return {
+        "total_productive_hours": round(totals["total_productive_seconds"] / 3600, 2),
+        "total_idle_hours": round(totals["total_idle_seconds"] / 3600, 2),
+        "total_overtime_hours": round(totals["total_overtime_seconds"] / 3600, 2),
+    }
+
+
+ 
+

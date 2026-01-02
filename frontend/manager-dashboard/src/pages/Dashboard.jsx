@@ -5,27 +5,8 @@ import { getEmployees } from "../api/employeesApi";
 import { getPredictedProductivity } from "../api/productivityApi";
 import { getEmployeeRanking } from "../api/rankingApi";
 import { getDefaultDateRange } from "../utils/dateUtils";
-
-/* -----------------------------
-   Placeholder Components
------------------------------- */
-function AttendanceChart() {
-  return (
-    <div className="h-48 flex items-center justify-center bg-gray-100 rounded-lg">
-      <span className="text-gray-500">[Weekly Attendance Chart]</span>
-    </div>
-  );
-}
-
-function RecentActivity() {
-  return (
-    <div className="flex flex-col space-y-2">
-      <div className="p-2 bg-gray-100 rounded">John Doe checked in</div>
-      <div className="p-2 bg-gray-100 rounded">Jane Smith checked out</div>
-      <div className="p-2 bg-gray-100 rounded">Mark Lee was absent</div>
-    </div>
-  );
-}
+import ProductivityDonutChart from "../components/ProductivityDonutChart";
+import { getWeeklySummary } from "../api/weeklysummaryApi";
 
 /* -----------------------------
    Main Dashboard
@@ -38,6 +19,8 @@ export default function Dashboard() {
 
   const [predictions, setPredictions] = useState([]);
   const [topEmployees, setTopEmployees] = useState([]);
+  const [weeklyProductivity, setWeeklyProductivity] = useState(null);
+
 
 
   /* -----------------------------
@@ -105,6 +88,24 @@ export default function Dashboard() {
 
     loadRankings();
   }, []);
+
+  /* -----------------------------
+     Load Weekly Productivity
+  ------------------------------ */
+  useEffect(() => {
+  const loadWeeklyProductivity = async () => {
+    try {
+      const data = await getWeeklySummary();
+      setWeeklyProductivity(data);
+    } catch (err) {
+      console.error("Weekly productivity error:", err);
+      setWeeklyProductivity(null);
+    }
+  };
+
+  loadWeeklyProductivity();
+}, []);
+
 
   /* -----------------------------
      Helpers
@@ -187,7 +188,9 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
           <h2 className="font-semibold mb-4">Weekly Attendance</h2>
-          <AttendanceChart />
+          <ProductivityDonutChart
+            data={weeklyProductivity}
+          />
         </div>
 
         <div className="bg-white rounded-xl shadow-sm p-6">

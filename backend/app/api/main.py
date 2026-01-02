@@ -1,11 +1,10 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
-from backend.app.ai.productivity_ai import calculate_productivity_with_ai
 from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload, ActivityThresholdCreate, ActivityThresholdResponse,MonthlySalaryResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.app.db.mySqlConfig import sessionLocal,Base, engine
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
-from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
+from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, calculate_total_productivity, create_manager_record, generate_employee_productivity_report, update_manager_password
 from typing import List
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager,EmployeeBaseSalary, ActivityThreshold
 from datetime import date
@@ -15,11 +14,6 @@ from backend.app.core.security import hash_password
 from jose import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.token_generator import get_user_id
-from backend.app.ai.productivity_score import generate_ai_features
-from backend.app.ai.anomaly_detection import detect_anomalies
-from backend.app.ai.productivity_trend import analyze_productivity_trend
-from backend.app.ai.model_loader import extract_features
-from backend.app.ai.productivity_model import predict_next_week
 from backend.app.ai.features import extract_employee_features
 from backend.app.ai.predictor import predict_next_week_productivity
 from backend.app.ai.employee_ranking import rank_employees_ai
@@ -496,23 +490,6 @@ def get_monthly_salary(
 def register_manager(manager_email: str, password: str, db: Session = Depends(get_db)):
     return update_manager_password(db,manager_email,password)
 
-@app.get("/manager/ai/productivity-insights")
-def productivity_insights(authorization: str = Header(...), start_date: date | None = Query(None), end_date: date | None = Query(None), db: Session = Depends(get_db)):
-    manager_id = get_user_id(authorization)
-    data = generate_employee_productivity_report(db, manager_id, start_date, end_date)
-
-    # scored = calculate_productivity_score(data,start_date,end_date)
-    # anomalies = detect_anomalies(data)
-    # trends = analyze_productivity_trend(data)
-
-    # return {
-    #     "scores": scored,
-    #     "anomalies": anomalies,
-    #     "trends": trends
-    # }
-    result = generate_ai_features(data)
-    return result
-
 @app.post("/predict-productivity")
 def predict_productivity(authorization: str = Header(...), db: Session = Depends(get_db)):
     manager_id = get_user_id(authorization)
@@ -641,5 +618,18 @@ def get_activity_threshold(db: Session = Depends(get_db)):
         return {"idle_time_out": threshold.idle_time_out}
     return {"idle_time_out": 5}  # default
 
+@app.get("/weekly/productivity-summary")
+def weekly_productivity_summary(authorization: str = Header(...), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
+    today = date.today()
+    start_of_week = today - timedelta(days=today.weekday())  # Monday
+    end_of_week = start_of_week + timedelta(days=6)
+    data = generate_employee_productivity_report(db, manager_id, start_of_week, end_of_week)
 
- 
+    employees: List[EmployeeInput] = [
+        EmployeeInput(**emp) for emp in data
+    ]
+
+    response = calculate_total_productivity(employees)
+
+    return response
