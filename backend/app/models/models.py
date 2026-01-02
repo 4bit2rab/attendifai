@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import time,date
-from typing import Literal
+from typing import Literal, List
 
 class ProductivityPayload(BaseModel):
     log_date: date
@@ -58,7 +58,22 @@ class ManagerResponse(BaseModel):
 
 class ManagerEmployeeMapCreate(BaseModel):
     manager_id: str
-    employee_id: str    
+    employee_id: str
+
+
+class ActivityLog(BaseModel):
+    log_date: date
+    productive_time: int
+    idle_time: int
+    over_time: int
+
+class EmployeeInput(BaseModel):
+    employee_id: str
+    employee_name: str
+    total_productive_hours: float
+    total_overtime_hours: float
+    logs: List[ActivityLog] = []
+
 
     class Config:   
         from_attributes = True

@@ -1,4 +1,5 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
+from backend.app.ai.productivity_ai import calculate_productivity_with_ai
 from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse
 from desktop_client.app.storage.store import shift_store
 from sqlalchemy.orm import Session
@@ -10,15 +11,21 @@ from backend.app.db.mySqlConfig import Base, engine
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
 from typing import List
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager
-from datetime import date
+from datetime import date, timedelta
 from backend.app.core.security import hash_password
 from pydantic import BaseModel
 from jose import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.token_generator import get_user_id
-from backend.app.ai.productivity_score import calculate_productivity_score
+from backend.app.ai.productivity_score import generate_ai_features
 from backend.app.ai.anomaly_detection import detect_anomalies
 from backend.app.ai.productivity_trend import analyze_productivity_trend
+from backend.app.ai.model_loader import extract_features
+from backend.app.ai.productivity_model import predict_next_week
+from backend.app.ai.features import extract_employee_features
+from backend.app.ai.predictor import predict_next_week_productivity
+from backend.app.ai.employee_ranking import rank_employees_ai
+from backend.app.models.models import EmployeeInput
 
 origins = [
     "http://localhost:5173",  # React dev server
@@ -407,14 +414,68 @@ def productivity_insights(authorization: str = Header(...), start_date: date | N
     manager_id = get_user_id(authorization)
     data = generate_employee_productivity_report(db, manager_id, start_date, end_date)
 
-    scored = calculate_productivity_score(data)
-    anomalies = detect_anomalies(data)
-    trends = analyze_productivity_trend(data)
+    # scored = calculate_productivity_score(data,start_date,end_date)
+    # anomalies = detect_anomalies(data)
+    # trends = analyze_productivity_trend(data)
 
+    # return {
+    #     "scores": scored,
+    #     "anomalies": anomalies,
+    #     "trends": trends
+    # }
+    result = generate_ai_features(data)
+    return result
+
+@app.post("/predict-productivity")
+def predict_productivity(authorization: str = Header(...), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
+    end_date = date.today()
+    start_date = end_date - timedelta(days=7)
+    report = generate_employee_productivity_report(db, manager_id, start_date, end_date)
+
+    results = []
+    for emp in report:
+        features = extract_employee_features(emp)
+
+        if not features:
+            results.append({
+                "employee_id": emp["employee_id"],
+                "employee_name": emp["employee_name"],
+                "predicted_next_week_productive_hours": 0,
+                "confidence": "Low"
+            })
+            continue
+
+        predicted = predict_next_week_productivity(features)
+
+        results.append({
+            "employee_id": emp["employee_id"],
+            "employee_name": emp["employee_name"],
+            "predicted_next_week_productive_hours": predicted,
+            "confidence": "Medium"
+        })
+
+    return results
+
+@app.get("/employee-ranking")
+def employee_ranking(authorization: str = Header(...), start_date: date | None = Query(None), end_date: date | None = Query(None), db: Session = Depends(get_db)):
+    manager_id = get_user_id(authorization)
+    data = generate_employee_productivity_report(db, manager_id, start_date, end_date)
+
+    employees: List[EmployeeInput] = [
+        EmployeeInput(**emp) for emp in data
+    ]
+
+    rankings = rank_employees_ai(employees)
+
+    # return ranked_df.to_dict(orient="records")
     return {
-        "scores": scored,
-        "anomalies": anomalies,
-        "trends": trends
+        "status": "success",
+        "manager_id": manager_id,
+        "date_range": {
+            "start_date": start_date,
+            "end_date": end_date
+        },
+        "rankings": rankings
     }
-
  
