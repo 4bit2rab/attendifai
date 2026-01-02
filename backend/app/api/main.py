@@ -6,7 +6,7 @@ from backend.app.services.employee_service import generate_employee_token, creat
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
 from backend.app.db.mySqlConfig import Base, engine
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken,EmployeeBaseSalary
 from typing import List
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager
 from datetime import date
@@ -67,12 +67,21 @@ def record_productivity(
     payload: ProductivityPayload, authorization: str = Header(...)
 ,db: Session = Depends(get_db)):
     employee_id = get_emp_id(authorization)
- 
+    emp_salary = (
+        db.query(EmployeeBaseSalary)
+        .filter(EmployeeBaseSalary.employee_id == employee_id)
+        .first()
+    )
+    hourly_salary = emp_salary.hourly_salary if emp_salary else 0
+    hours_worked = payload.productive_time / 3600
+    per_day_salary = hourly_salary * hours_worked
+
     employee_activity_log = EmployeeActivityLog(employee_id=employee_id,
     log_date=payload.log_date,
     productive_time=payload.productive_time,
     idle_time=payload.idle_time,
-    over_time=payload.over_time)
+    over_time=payload.over_time,
+    per_day_base_salary=per_day_salary)
     db.add(employee_activity_log)
     db.commit()
  
