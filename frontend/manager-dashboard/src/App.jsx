@@ -8,7 +8,7 @@ import Shifts from "./pages/Shifts";
 import Employees from "./pages/Employees";
 import DashboardLayout from "./layout/DashboardLayout";
 import Report from "./pages/Report";
-
+import OvertimeApproval from "./pages/OvertimeApproval.jsx";
 
 function App() {
   return (
@@ -25,6 +25,7 @@ function App() {
           <Route path="/shifts" element={<Shifts />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/report" element={<Report />} />
+          <Route path="/overtime-approval" element={<OvertimeApproval />} />
         </Route>
       </Routes>
     </BrowserRouter>
