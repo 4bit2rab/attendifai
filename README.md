@@ -21,31 +21,30 @@ It tracks **productive, idle, and overtime hours** of employees and allows manag
 1. Open a terminal and navigate to the backend folder:  cd backend
 
 2. Create and activate a virtual environment:
-    Linux/macOS
-        python -m venv venv
-        source venv/bin/activate
-
-    Windows
-        python -m venv venv
-        venv\Scripts\activate
+- Linux/macOS
+    - python -m venv venv
+    - source venv/bin/activate
+- Windows
+    - python -m venv venv
+    - venv\Scripts\activate
 
 3. Install dependencies:
-    pip install -r requirements.txt
+    - pip install -r requirements.txt
 
 
 4. Start the backend server:
-    uvicorn backend.app.api.main:app --reload
-    The server will run at http://127.0.0.1:8000
+    - uvicorn backend.app.api.main:app --reload
+    - The server will run at http://127.0.0.1:8000
 
 5. CORS is enabled for http://localhost:5173 to allow the frontend to connect.
 
 6. Desktop Client Setup (PyQt6)
-    Create and activate a virtual environment
-    Install Python dependencies:
-        pip install -r requirements.txt
+    - Create and activate a virtual environment
+    - Install Python dependencies:
+        - pip install -r requirements.txt
 
-    Run the desktop application:
-        python desktop_client/app/monitoring/main.py
+    - Run the desktop application:
+        - python desktop_client/app/monitoring/main.py
 
 
 First-time users:
@@ -60,9 +59,8 @@ Usage
 - Set global activity thresholds
 
 For Employees:
-
-    -Record productive, idle, and overtime hours daily
-    -Receive notifications for overtime approvals
+ - Record productive, idle, and overtime hours daily
+ - Receive notifications for overtime approvals
     
 Notes
 

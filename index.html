@@ -1,0 +1,2107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DataIntel - Operations Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes slide-in {
+        from {
+          transform: translateX(-20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes pulse-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+        }
+      }
+
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-out;
+      }
+
+      .animate-slide-in {
+        animation: slide-in 0.3s ease-out;
+      }
+
+      .stat-card {
+        transition: all 0.3s ease;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      }
+
+      .chart-container {
+        position: relative;
+        transition: opacity 0.3s ease;
+      }
+
+      .loading-spinner {
+        border: 3px solid #f3f4f6;
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .gradient-text {
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .project-card {
+        transition: all 0.3s ease;
+      }
+
+      .project-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+      }
+    </style>
+  </head>
+
+  <body class="bg-slate-50 text-slate-800">
+    <div class="flex h-screen overflow-hidden">
+      <!-- Sidebar -->
+      <div
+        class="w-64 bg-slate-900 text-white flex flex-col flex-shrink-0 transition-all duration-300"
+      >
+        <div class="p-6">
+          <h1 class="text-2xl font-bold text-blue-400">DataIntel</h1>
+          <p class="text-sm text-slate-400 mt-1">Operations Analytics</p>
+        </div>
+
+        <nav class="space-y-2 px-4 flex-1 overflow-y-auto">
+          <button
+            onclick="navigate('overview')"
+            id="nav-overview"
+            class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800"
+          >
+            <i data-lucide="bar-chart-3" size="20"></i>
+            <span class="text-sm font-medium">Business Overview</span>
+          </button>
+          <button
+            onclick="navigate('projects')"
+            id="nav-projects"
+            class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800"
+          >
+            <i data-lucide="briefcase" size="20"></i>
+            <span class="text-sm font-medium">Projects</span>
+          </button>
+          <button
+            onclick="navigate('resources')"
+            id="nav-resources"
+            class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800"
+          >
+            <i data-lucide="users" size="20"></i>
+            <span class="text-sm font-medium">FTE Dashboard</span>
+          </button>
+          <button
+            onclick="navigate('optimizer')"
+            id="nav-optimizer"
+            class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800"
+          >
+            <i data-lucide="trending-up" size="20"></i>
+            <span class="text-sm font-medium">Optimization Simulator</span>
+          </button>
+          <button
+            onclick="navigate('forecaster')"
+            id="nav-forecaster"
+            class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800"
+          >
+            <i data-lucide="line-chart" size="20"></i>
+            <span class="text-sm font-medium">Business Forecaster</span>
+          </button>
+          <button
+            onclick="navigate('insights')"
+            id="nav-insights"
+            class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800"
+          >
+            <i data-lucide="message-square" size="20"></i>
+            <span class="text-sm font-medium">AI Insighter</span>
+          </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800">
+          <div class="flex items-center space-x-3">
+            <div
+              class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-xs font-bold"
+            >
+              JD
+            </div>
+            <div>
+              <p class="text-sm font-medium">John Doe</p>
+              <p class="text-xs text-slate-500">Admin</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <main class="flex-1 overflow-y-auto bg-slate-50 p-8" id="main-content">
+        <!-- Sections will be injected here via JS -->
+      </main>
+    </div>
+
+    <!-- Templates for Sections -->
+    <template id="tpl-overview">
+      <div class="space-y-6 animate-fade-in">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-3xl font-bold text-slate-900">Business Overview</h2>
+            <p class="text-slate-600 mt-1">
+              Key performance metrics and trends
+            </p>
+          </div>
+          <div class="flex space-x-2">
+            <select
+              class="px-4 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+            >
+              <option>2025</option>
+              <option>2024</option>
+            </select>
+            <button
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+            >
+              Export Report
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div
+            class="stat-card bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="text-sm text-slate-500 font-medium">Total Revenue</p>
+                <h3 class="text-3xl font-bold text-slate-900 mt-1">$2.4M</h3>
+              </div>
+              <div
+                class="p-3 bg-gradient-to-br from-green-50 to-emerald-50 text-green-600 rounded-xl shadow-sm"
+              >
+                <i data-lucide="dollar-sign" size="24"></i>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center text-sm text-green-600">
+                <i data-lucide="trending-up" size="16" class="mr-1"></i>
+                <span class="font-medium">+12.5%</span>
+              </div>
+              <span class="text-xs text-slate-400">vs last month</span>
+            </div>
+          </div>
+          <div
+            class="stat-card bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="text-sm text-slate-500 font-medium">
+                  Active Projects
+                </p>
+                <h3 class="text-3xl font-bold text-slate-900 mt-1">14</h3>
+              </div>
+              <div
+                class="p-3 bg-gradient-to-br from-blue-50 to-cyan-50 text-blue-600 rounded-xl shadow-sm"
+              >
+                <i data-lucide="briefcase" size="24"></i>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center text-sm text-blue-600">
+                <span class="font-medium">3 New</span>
+              </div>
+              <span class="text-xs text-slate-400">this month</span>
+            </div>
+          </div>
+          <div
+            class="stat-card bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="text-sm text-slate-500 font-medium">Avg. Margin</p>
+                <h3 class="text-3xl font-bold text-slate-900 mt-1">28%</h3>
+              </div>
+              <div
+                class="p-3 bg-gradient-to-br from-purple-50 to-pink-50 text-purple-600 rounded-xl shadow-sm"
+              >
+                <i data-lucide="percent" size="24"></i>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center text-sm text-red-500">
+                <i data-lucide="trending-down" size="16" class="mr-1"></i>
+                <span class="font-medium">-2.1%</span>
+              </div>
+              <span class="text-xs text-slate-400">vs last month</span>
+            </div>
+          </div>
+          <div
+            class="stat-card bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <p class="text-sm text-slate-500 font-medium">Risk Level</p>
+                <h3 class="text-3xl font-bold text-orange-500 mt-1">Medium</h3>
+              </div>
+              <div
+                class="p-3 bg-gradient-to-br from-orange-50 to-amber-50 text-orange-600 rounded-xl shadow-sm"
+              >
+                <i data-lucide="alert-triangle" size="24"></i>
+              </div>
+            </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center text-sm text-orange-600">
+                <span class="font-medium">2 at risk</span>
+              </div>
+              <span class="text-xs text-slate-400">projects</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div
+            class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+          >
+            <div class="flex justify-between items-center mb-6">
+              <h3 class="text-lg font-bold text-slate-900">
+                Revenue vs Cost Trend
+              </h3>
+              <span
+                class="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded-full font-medium"
+                >Last 6 Months</span
+              >
+            </div>
+            <div class="h-[300px]">
+              <canvas id="overviewChart"></canvas>
+            </div>
+          </div>
+          <div
+            class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+          >
+            <div class="flex justify-between items-center mb-6">
+              <h3 class="text-lg font-bold text-slate-900">
+                Project Status Distribution
+              </h3>
+              <span
+                class="text-xs bg-green-50 text-green-600 px-3 py-1 rounded-full font-medium"
+                >Current</span
+              >
+            </div>
+            <div class="h-[300px]">
+              <canvas id="projectStatusChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div
+            class="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-xl border border-blue-100"
+          >
+            <h4 class="text-sm font-semibold text-slate-700 mb-3">
+              Team Utilization
+            </h4>
+            <div class="flex items-end justify-between mb-2">
+              <span class="text-3xl font-bold text-blue-600">84%</span>
+              <span class="text-xs text-slate-500">Target: 85%</span>
+            </div>
+            <div class="w-full bg-white/50 rounded-full h-2.5">
+              <div
+                class="bg-gradient-to-r from-blue-500 to-cyan-500 h-2.5 rounded-full"
+                style="width: 84%"
+              ></div>
+            </div>
+          </div>
+          <div
+            class="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-xl border border-green-100"
+          >
+            <h4 class="text-sm font-semibold text-slate-700 mb-3">
+              On-Time Delivery
+            </h4>
+            <div class="flex items-end justify-between mb-2">
+              <span class="text-3xl font-bold text-green-600">92%</span>
+              <span class="text-xs text-slate-500">+5% YoY</span>
+            </div>
+            <div class="w-full bg-white/50 rounded-full h-2.5">
+              <div
+                class="bg-gradient-to-r from-green-500 to-emerald-500 h-2.5 rounded-full"
+                style="width: 92%"
+              ></div>
+            </div>
+          </div>
+          <div
+            class="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl border border-purple-100"
+          >
+            <h4 class="text-sm font-semibold text-slate-700 mb-3">
+              Client Satisfaction
+            </h4>
+            <div class="flex items-end justify-between mb-2">
+              <span class="text-3xl font-bold text-purple-600">4.8/5</span>
+              <span class="text-xs text-slate-500">128 reviews</span>
+            </div>
+            <div class="flex space-x-1 mt-2">
+              <i
+                data-lucide="star"
+                size="16"
+                class="text-yellow-400 fill-current"
+              ></i>
+              <i
+                data-lucide="star"
+                size="16"
+                class="text-yellow-400 fill-current"
+              ></i>
+              <i
+                data-lucide="star"
+                size="16"
+                class="text-yellow-400 fill-current"
+              ></i>
+              <i
+                data-lucide="star"
+                size="16"
+                class="text-yellow-400 fill-current"
+              ></i>
+              <i
+                data-lucide="star"
+                size="16"
+                class="text-yellow-400 fill-current"
+              ></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-projects">
+      <div class="space-y-6 animate-fade-in">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-3xl font-bold text-slate-900">Projects Overview</h2>
+            <p class="text-slate-600 mt-1">
+              Track project status and performance
+            </p>
+          </div>
+          <select
+            class="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Regions</option>
+            <option value="US">US</option>
+            <option value="EMEA">EMEA</option>
+            <option value="APAC">APAC</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Project Card 1 -->
+          <div
+            class="project-card bg-white rounded-lg border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="font-bold text-lg text-slate-900">
+                  Cloud Migration Alpha
+                </h3>
+                <p class="text-sm text-slate-500">Client: TechCorp Inc.</p>
+              </div>
+              <span
+                class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium"
+                >Active</span
+              >
+            </div>
+            <div class="space-y-3">
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-600">Budget Spent</span>
+                <span class="font-medium text-slate-900">$125k / $200k</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2">
+                <div
+                  class="bg-blue-600 h-2 rounded-full"
+                  style="width: 62%"
+                ></div>
+              </div>
+              <div
+                class="flex justify-between text-xs text-slate-500 pt-2 border-t border-slate-100"
+              >
+                <span>Region: US</span>
+                <span>End: Dec 2025</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Card 2 -->
+          <div
+            class="project-card bg-white rounded-lg border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="font-bold text-lg text-slate-900">
+                  Data Lake Implementation
+                </h3>
+                <p class="text-sm text-slate-500">Client: GlobalFinance</p>
+              </div>
+              <span
+                class="px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium"
+                >At Risk</span
+              >
+            </div>
+            <div class="space-y-3">
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-600">Budget Spent</span>
+                <span class="font-medium text-slate-900">$190k / $200k</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2">
+                <div
+                  class="bg-red-500 h-2 rounded-full"
+                  style="width: 95%"
+                ></div>
+              </div>
+              <div
+                class="flex justify-between text-xs text-slate-500 pt-2 border-t border-slate-100"
+              >
+                <span>Region: EMEA</span>
+                <span>End: Nov 2025</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Project Card 3 -->
+          <div
+            class="project-card bg-white rounded-lg border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="font-bold text-lg text-slate-900">AI Chatbot Dev</h3>
+                <p class="text-sm text-slate-500">Client: RetailGiant</p>
+              </div>
+              <span
+                class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium"
+                >Completed</span
+              >
+            </div>
+            <div class="space-y-3">
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-600">Budget Spent</span>
+                <span class="font-medium text-slate-900">$145k / $150k</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2">
+                <div
+                  class="bg-green-500 h-2 rounded-full"
+                  style="width: 96%"
+                ></div>
+              </div>
+              <div
+                class="flex justify-between text-xs text-slate-500 pt-2 border-t border-slate-100"
+              >
+                <span>Region: APAC</span>
+                <span>End: Oct 2025</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-resources">
+      <div class="space-y-6 animate-fade-in">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-3xl font-bold text-slate-900">
+              Resource Dashboard
+            </h2>
+            <p class="text-slate-600 mt-1">Monitor team capacity and skills</p>
+          </div>
+          <select
+            class="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">All Skills</option>
+            <option value="Python">Python</option>
+            <option value="React">React</option>
+            <option value="AWS">AWS</option>
+          </select>
+        </div>
+
+        <div
+          class="bg-white rounded-lg border border-slate-200 overflow-hidden"
+        >
+          <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+              <tr>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                >
+                  Employee
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                >
+                  Role
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                >
+                  Skills
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                >
+                  Utilization
+                </th>
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"
+                >
+                  Available Hrs
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-slate-200">
+              <tr>
+                <td
+                  class="px-6 py-4 whitespace-nowrap font-medium text-slate-900"
+                >
+                  Alice Johnson
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  Senior Dev
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  Python, AWS
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <span class="text-sm mr-2 text-red-600 font-bold">95%</span>
+                    <div class="w-24 bg-slate-100 rounded-full h-2">
+                      <div
+                        class="bg-red-500 h-2 rounded-full"
+                        style="width: 95%"
+                      ></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  2 hrs
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="px-6 py-4 whitespace-nowrap font-medium text-slate-900"
+                >
+                  Bob Smith
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  Frontend Dev
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  React, TypeScript
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <span class="text-sm mr-2 text-green-600 font-bold"
+                      >75%</span
+                    >
+                    <div class="w-24 bg-slate-100 rounded-full h-2">
+                      <div
+                        class="bg-green-500 h-2 rounded-full"
+                        style="width: 75%"
+                      ></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  10 hrs
+                </td>
+              </tr>
+              <tr>
+                <td
+                  class="px-6 py-4 whitespace-nowrap font-medium text-slate-900"
+                >
+                  Charlie Brown
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  Data Scientist
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  Python, ML
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <span class="text-sm mr-2 text-blue-600 font-bold"
+                      >50%</span
+                    >
+                    <div class="w-24 bg-slate-100 rounded-full h-2">
+                      <div
+                        class="bg-blue-500 h-2 rounded-full"
+                        style="width: 50%"
+                      ></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-slate-500">
+                  20 hrs
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-optimizer">
+      <div class="space-y-6 animate-fade-in">
+        <div>
+          <h2 class="text-3xl font-bold text-slate-900">
+            Optimization Simulator
+          </h2>
+          <p class="text-slate-600 mt-1">
+            Simulate resource and pricing optimizations
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Configuration Panel -->
+          <div
+            class="lg:col-span-1 bg-white rounded-lg shadow-sm border border-slate-200 p-6"
+          >
+            <h3 class="text-lg font-bold text-slate-900 mb-4">Configuration</h3>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2"
+                  >Select Project</label
+                >
+                <select
+                  id="sim-project"
+                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="p1">
+                    Cloud Migration Alpha - TechCorp Inc.
+                  </option>
+                  <option value="p2">
+                    Data Lake Implementation - GlobalFinance
+                  </option>
+                  <option value="p3">AI Chatbot Dev - RetailGiant</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2"
+                  >FTE Count:
+                  <span id="sim-fte-val" class="font-bold text-blue-600"
+                    >5</span
+                  ></label
+                >
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  value="5"
+                  id="sim-fte"
+                  class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                  oninput="updateSimUI()"
+                />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700 mb-2"
+                  >Billing Rate:
+                  <span id="sim-rate-val" class="font-bold text-blue-600"
+                    >$150/hr</span
+                  ></label
+                >
+                <input
+                  type="range"
+                  min="50"
+                  max="300"
+                  step="10"
+                  value="150"
+                  id="sim-rate"
+                  class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                  oninput="updateSimUI()"
+                />
+              </div>
+              <button
+                onclick="runOptimizer('manual')"
+                class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Run Simulation
+              </button>
+              <button
+                onclick="runOptimizer('auto')"
+                class="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+              >
+                <i data-lucide="sparkles" size="20"></i>
+                <span>Auto Optimizer</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Results Panel -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Default State -->
+            <div
+              id="sim-empty"
+              class="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center"
+            >
+              <div
+                class="mx-auto w-12 h-12 text-slate-400 mb-4 flex justify-center"
+              >
+                <i data-lucide="sparkles" size="48"></i>
+              </div>
+              <p class="text-slate-600">
+                Configure parameters and run simulation to see optimization
+                results
+              </p>
+            </div>
+
+            <!-- Results State (Hidden by default) -->
+            <div id="sim-content" class="hidden space-y-6">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Revenue Card -->
+                <div
+                  class="bg-white rounded-lg shadow-sm border border-slate-200 p-6"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">Revenue Impact</span>
+                    <i
+                      data-lucide="dollar-sign"
+                      class="text-green-600"
+                      size="20"
+                    ></i>
+                  </div>
+                  <p class="text-sm text-slate-500">
+                    Current: <span id="res-rev-curr">$144K</span>
+                  </p>
+                  <p class="text-2xl font-bold text-green-600" id="res-rev-opt">
+                    $165K
+                  </p>
+                  <p class="text-sm text-green-600 mt-1" id="res-rev-pct">
+                    +15.0%
+                  </p>
+                </div>
+                <!-- Profit Card -->
+                <div
+                  class="bg-white rounded-lg shadow-sm border border-slate-200 p-6"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">Profit Increase</span>
+                    <i
+                      data-lucide="trending-up"
+                      class="text-blue-600"
+                      size="20"
+                    ></i>
+                  </div>
+                  <p class="text-sm text-slate-500">
+                    Current: <span id="res-prof-curr">$36K</span>
+                  </p>
+                  <p class="text-2xl font-bold text-blue-600" id="res-prof-opt">
+                    $58K
+                  </p>
+                  <p class="text-sm text-blue-600 mt-1" id="res-prof-pct">
+                    +61.1%
+                  </p>
+                </div>
+                <!-- Timeline Card -->
+                <div
+                  class="bg-white rounded-lg shadow-sm border border-slate-200 p-6"
+                >
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-slate-600">Timeline</span>
+                    <i
+                      data-lucide="clock"
+                      class="text-orange-600"
+                      size="20"
+                    ></i>
+                  </div>
+                  <p class="text-sm text-slate-500">Current: 6 months</p>
+                  <p
+                    class="text-2xl font-bold text-orange-600"
+                    id="res-time-opt"
+                  >
+                    5 months
+                  </p>
+                  <p class="text-sm text-orange-600 mt-1" id="res-time-pct">
+                    -17% faster
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="bg-white rounded-lg shadow-sm border border-slate-200 p-6"
+              >
+                <h3 class="text-lg font-bold text-slate-900 mb-4">
+                  Optimization Recommendations
+                </h3>
+                <div class="space-y-3" id="sim-recs">
+                  <!-- Injected via JS -->
+                </div>
+              </div>
+
+              <div
+                class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200 p-6"
+              >
+                <h3 class="text-lg font-bold text-slate-900 mb-3">
+                  Comparison Summary
+                </h3>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <p class="text-sm font-medium text-slate-600 mb-2">
+                      Current Scenario
+                    </p>
+                    <ul
+                      class="text-sm text-slate-700 space-y-1"
+                      id="sim-sum-curr"
+                    >
+                      <!-- Injected via JS -->
+                    </ul>
+                  </div>
+                  <div>
+                    <p class="text-sm font-medium text-slate-600 mb-2">
+                      Optimized Scenario
+                    </p>
+                    <ul
+                      class="text-sm text-slate-700 space-y-1"
+                      id="sim-sum-opt"
+                    >
+                      <!-- Injected via JS -->
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-forecaster">
+      <div class="space-y-6 animate-fade-in">
+        <div>
+          <h2 class="text-3xl font-bold text-slate-900">Business Forecaster</h2>
+          <p class="text-slate-600 mt-1">
+            12-month predictive analytics with AI-assisted market insights
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <button
+            onclick="setForecastType('revenue')"
+            id="ft-revenue"
+            class="px-6 py-3 rounded-lg font-medium transition-colors bg-blue-600 text-white"
+          >
+            Revenue Forecast
+          </button>
+          <button
+            onclick="setForecastType('profit')"
+            id="ft-profit"
+            class="px-6 py-3 rounded-lg font-medium transition-colors bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+          >
+            Profit Forecast
+          </button>
+          <button
+            onclick="setForecastType('projects')"
+            id="ft-projects"
+            class="px-6 py-3 rounded-lg font-medium transition-colors bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+          >
+            Project Volume
+          </button>
+          <button
+            onclick="setForecastType('resources')"
+            id="ft-resources"
+            class="px-6 py-3 rounded-lg font-medium transition-colors bg-white text-slate-700 border border-slate-300 hover:bg-slate-50"
+          >
+            Resource Demand
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div
+            class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200"
+          >
+            <div class="flex items-center space-x-2 mb-2">
+              <i data-lucide="bar-chart-3" class="text-blue-600" size="20"></i>
+              <h3 class="font-semibold text-slate-900">Statistical Model</h3>
+            </div>
+            <p class="text-3xl font-bold text-blue-600" id="fc-stat-val">
+              $198K
+            </p>
+            <p class="text-sm text-slate-600 mt-1">
+              ARIMA + Prophet Projection
+            </p>
+          </div>
+
+          <div
+            class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border border-purple-200"
+          >
+            <div class="flex items-center space-x-2 mb-2">
+              <i data-lucide="brain" class="text-purple-600" size="20"></i>
+              <h3 class="font-semibold text-slate-900">AI-Assisted</h3>
+            </div>
+            <p class="text-3xl font-bold text-purple-600" id="fc-ai-val">
+              $215K
+            </p>
+            <p class="text-sm text-slate-600 mt-1">XGBoost + Market Factors</p>
+          </div>
+
+          <div
+            class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200"
+          >
+            <div class="flex items-center space-x-2 mb-2">
+              <i data-lucide="trending-up" class="text-green-600" size="20"></i>
+              <h3 class="font-semibold text-slate-900">Confidence</h3>
+            </div>
+            <p class="text-3xl font-bold text-green-600" id="fc-conf-val">
+              92%
+            </p>
+            <p class="text-sm text-slate-600 mt-1">Model Convergence Score</p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+          <div class="mb-6 flex justify-between items-center">
+            <div>
+              <h3 class="text-lg font-bold text-slate-900" id="fc-chart-title">
+                Revenue - Next 12 Months
+              </h3>
+              <p class="text-sm text-slate-600">
+                Comparing statistical baseline vs. AI-enhanced prediction
+              </p>
+            </div>
+            <div
+              class="flex items-center space-x-2 text-sm text-slate-500 bg-slate-50 px-3 py-1 rounded-full"
+            >
+              <i data-lucide="info" size="16"></i>
+              <span>Shaded area represents confidence interval</span>
+            </div>
+          </div>
+
+          <div class="h-[400px] w-full relative">
+            <canvas id="forecastChart"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 rounded-lg border border-slate-200 p-6">
+          <h3 class="font-bold text-slate-900 mb-3">Forecasting Methodology</h3>
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700"
+          >
+            <div>
+              <h4 class="font-semibold text-slate-900 mb-2 flex items-center">
+                <i
+                  data-lucide="bar-chart-3"
+                  size="16"
+                  class="mr-2 text-blue-600"
+                ></i>
+                Statistical Model (ARIMA + Prophet)
+              </h4>
+              <ul class="space-y-1 list-disc list-inside text-slate-600 ml-1">
+                <li>
+                  Auto-Regressive Integrated Moving Average (ARIMA) for trend
+                  analysis
+                </li>
+                <li>Prophet decomposition for seasonal pattern detection</li>
+                <li>
+                  Historical baseline established from 24-month financial data
+                </li>
+                <li>Best for stable, linear growth projections</li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="font-semibold text-slate-900 mb-2 flex items-center">
+                <i
+                  data-lucide="brain"
+                  size="16"
+                  class="mr-2 text-purple-600"
+                ></i>
+                AI-Assisted Model (XGBoost)
+              </h4>
+              <ul class="space-y-1 list-disc list-inside text-slate-600 ml-1">
+                <li>
+                  Gradient Boosting Decision Trees (XGBoost) for non-linear
+                  patterns
+                </li>
+                <li>
+                  Incorporates external market growth factors (~5-12% CAGR)
+                </li>
+                <li>
+                  Adjusts for technology adoption rates and economic indicators
+                </li>
+                <li>Best for dynamic, market-aware forecasting</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-insights">
+      <div class="space-y-6 animate-fade-in h-full flex flex-col">
+        <div class="flex justify-between items-start">
+          <div>
+            <h2 class="text-3xl font-bold text-slate-900">AI Insighter</h2>
+            <p class="text-slate-600 mt-1">
+              Advanced Intelligence & Decision Support
+            </p>
+          </div>
+          <div
+            class="flex items-center space-x-3 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm"
+          >
+            <div class="relative">
+              <i data-lucide="zap" class="text-green-500" size="24"></i>
+              <div class="absolute inset-0 animate-ping opacity-75">
+                <i data-lucide="zap" class="text-green-400" size="24"></i>
+              </div>
+            </div>
+            <div class="text-sm">
+              <div class="font-semibold text-slate-900">Groq AI Connected</div>
+              <div class="text-xs text-slate-500">llama-3.3-70b-versatile</div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col lg:flex-row flex-1 overflow-hidden h-[600px]"
+        >
+          <!-- Sidebar Tabs -->
+          <div
+            class="w-64 bg-slate-50 border-r border-slate-200 p-4 flex flex-col"
+          >
+            <h3
+              class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4"
+            >
+              Intelligence Modules
+            </h3>
+            <nav class="space-y-1" id="ai-nav">
+              <button
+                onclick="switchAITab('chat')"
+                id="ai-tab-chat"
+                class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700"
+              >
+                <i data-lucide="message-square" size="18"></i>
+                <span>Natural Language</span>
+              </button>
+              <button
+                onclick="switchAITab('forecast')"
+                id="ai-tab-forecast"
+                class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <i data-lucide="trending-up" size="18"></i>
+                <span>Forecasting</span>
+              </button>
+              <button
+                onclick="switchAITab('risk')"
+                id="ai-tab-risk"
+                class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <i data-lucide="shield-alert" size="18"></i>
+                <span>Risk Prediction</span>
+              </button>
+              <button
+                onclick="switchAITab('market')"
+                id="ai-tab-market"
+                class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <i data-lucide="globe" size="18"></i>
+                <span>Market Intel</span>
+              </button>
+              <button
+                onclick="switchAITab('invoice')"
+                id="ai-tab-invoice"
+                class="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                <i data-lucide="file-text" size="18"></i>
+                <span>Invoice AI</span>
+              </button>
+            </nav>
+
+            <div class="mt-auto pt-4 border-t border-slate-200">
+              <div class="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                <div class="flex items-center space-x-2 mb-1">
+                  <i data-lucide="brain" size="16" class="text-blue-600"></i>
+                  <span class="text-xs font-bold text-blue-800"
+                    >System Status</span
+                  >
+                </div>
+                <p class="text-[10px] text-blue-600">
+                  All models operational. Last training: 2h ago.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Content Area -->
+          <div class="flex-1 bg-white relative overflow-y-auto" id="ai-content">
+            <!-- Chat View (Default) -->
+            <div id="view-chat" class="h-full flex flex-col">
+              <div
+                class="flex-1 p-6 overflow-y-auto space-y-4"
+                id="chat-messages"
+              >
+                <div class="flex justify-start">
+                  <div
+                    class="bg-slate-100 text-slate-900 rounded-lg p-4 max-w-[80%]"
+                  >
+                    <p class="text-sm">
+                      Hello! I'm your AI business analyst. I have access to all
+                      your company data including projects, resources,
+                      financials, and performance metrics. How can I help you
+                      today?
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="p-4 border-t border-slate-200">
+                <div
+                  class="flex space-x-2 mb-4 overflow-x-auto pb-2 hide-scrollbar"
+                >
+                  <button
+                    onclick="sendMsg('Which center is at risk next month?')"
+                    class="whitespace-nowrap px-3 py-1 bg-slate-100 text-slate-600 text-xs rounded-full hover:bg-blue-100 hover:text-blue-700 border border-slate-200"
+                  >
+                    Which center is at risk next month?
+                  </button>
+                  <button
+                    onclick="sendMsg('Show the top 5 underperforming centers')"
+                    class="whitespace-nowrap px-3 py-1 bg-slate-100 text-slate-600 text-xs rounded-full hover:bg-blue-100 hover:text-blue-700 border border-slate-200"
+                  >
+                    Show top 5 underperforming centers
+                  </button>
+                  <button
+                    onclick="sendMsg('What was our total operational cost in Q3?')"
+                    class="whitespace-nowrap px-3 py-1 bg-slate-100 text-slate-600 text-xs rounded-full hover:bg-blue-100 hover:text-blue-700 border border-slate-200"
+                  >
+                    Total operational cost in Q3?
+                  </button>
+                </div>
+                <div class="flex space-x-2">
+                  <input
+                    type="text"
+                    id="chat-input"
+                    placeholder="Ask me anything about your business..."
+                    class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onkeypress="if(event.key === 'Enter') sendMsg()"
+                  />
+                  <button
+                    onclick="sendMsg()"
+                    class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    <i data-lucide="send" size="20"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Forecast View -->
+            <div id="view-forecast" class="hidden p-6 h-full">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i data-lucide="trending-up" class="mr-2 text-blue-600"></i>
+                  Revenue Forecasting
+                </h3>
+                <span
+                  class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded border border-blue-200"
+                  >Model: ARIMA + Prophet</span
+                >
+              </div>
+              <div
+                class="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-6"
+              >
+                <h4 class="font-semibold text-slate-700 mb-4">
+                  Projected Revenue (Next 3 Months)
+                </h4>
+                <div class="h-48 flex items-end justify-between space-x-4 px-4">
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-slate-400 rounded-t opacity-60"
+                      style="height: 40%"
+                    ></div>
+                    <div class="text-[10px] text-center mt-1 text-slate-500">
+                      M-6
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-slate-400 rounded-t opacity-60"
+                      style="height: 45%"
+                    ></div>
+                    <div class="text-[10px] text-center mt-1 text-slate-500">
+                      M-5
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-slate-400 rounded-t opacity-60"
+                      style="height: 42%"
+                    ></div>
+                    <div class="text-[10px] text-center mt-1 text-slate-500">
+                      M-4
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-slate-400 rounded-t opacity-60"
+                      style="height: 48%"
+                    ></div>
+                    <div class="text-[10px] text-center mt-1 text-slate-500">
+                      M-3
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-slate-400 rounded-t opacity-60"
+                      style="height: 50%"
+                    ></div>
+                    <div class="text-[10px] text-center mt-1 text-slate-500">
+                      M-2
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-slate-400 rounded-t opacity-60"
+                      style="height: 52%"
+                    ></div>
+                    <div class="text-[10px] text-center mt-1 text-slate-500">
+                      M-1
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-blue-500 rounded-t opacity-90"
+                      style="height: 55%"
+                    ></div>
+                    <div
+                      class="text-[10px] text-center mt-1 text-blue-600 font-bold"
+                    >
+                      M+1
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-blue-500 rounded-t opacity-90"
+                      style="height: 58%"
+                    ></div>
+                    <div
+                      class="text-[10px] text-center mt-1 text-blue-600 font-bold"
+                    >
+                      M+2
+                    </div>
+                  </div>
+                  <div class="flex-1 flex flex-col justify-end group">
+                    <div
+                      class="w-full bg-blue-500 rounded-t opacity-90"
+                      style="height: 62%"
+                    ></div>
+                    <div
+                      class="text-[10px] text-center mt-1 text-blue-600 font-bold"
+                    >
+                      M+3
+                    </div>
+                  </div>
+                </div>
+                <div class="flex justify-center space-x-6 mt-4 text-xs">
+                  <div class="flex items-center">
+                    <div class="w-3 h-3 bg-slate-400 opacity-60 mr-2"></div>
+                    Historical Data
+                  </div>
+                  <div class="flex items-center">
+                    <div class="w-3 h-3 bg-blue-500 mr-2"></div>
+                    AI Forecast (95% Conf.)
+                  </div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div
+                  class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm"
+                >
+                  <h4 class="font-bold text-slate-700 mb-2">
+                    Confidence Interval
+                  </h4>
+                  <p class="text-2xl font-bold text-green-600">94.2%</p>
+                  <p class="text-xs text-slate-500">
+                    Based on 24 months of historical data
+                  </p>
+                </div>
+                <div
+                  class="bg-white p-4 rounded-lg border border-slate-200 shadow-sm"
+                >
+                  <h4 class="font-bold text-slate-700 mb-2">
+                    Growth Trajectory
+                  </h4>
+                  <p class="text-2xl font-bold text-blue-600">+12.5%</p>
+                  <p class="text-xs text-slate-500">
+                    Year-over-Year projected growth
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Risk View -->
+            <div id="view-risk" class="hidden p-6 h-full">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i data-lucide="shield-alert" class="mr-2 text-red-600"></i>
+                  Risk & SLA Prediction
+                </h3>
+                <span
+                  class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded border border-red-200"
+                  >Model: XGBoost Classifier</span
+                >
+              </div>
+              <div class="space-y-4">
+                <div
+                  class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg"
+                >
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <h4 class="font-bold text-red-800">
+                        High Risk Alert: Project Alpha
+                      </h4>
+                      <p class="text-sm text-red-700 mt-1">
+                        Predicted SLA breach in next 14 days due to resource
+                        shortage.
+                      </p>
+                    </div>
+                    <span
+                      class="bg-red-200 text-red-800 text-xs px-2 py-1 rounded font-bold"
+                      >92% Prob.</span
+                    >
+                  </div>
+                  <div class="mt-3 flex space-x-2">
+                    <button
+                      class="text-xs bg-white border border-red-200 text-red-700 px-3 py-1 rounded hover:bg-red-100"
+                    >
+                      View Details
+                    </button>
+                    <button
+                      class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                    >
+                      Mitigate
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-lg"
+                >
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <h4 class="font-bold text-amber-800">
+                        Medium Risk: Team Gamma Adherence
+                      </h4>
+                      <p class="text-sm text-amber-700 mt-1">
+                        Adherence dropped to 88% (Target: 95%). Trend is
+                        declining.
+                      </p>
+                    </div>
+                    <span
+                      class="bg-amber-200 text-amber-800 text-xs px-2 py-1 rounded font-bold"
+                      >Medium</span
+                    >
+                  </div>
+                </div>
+                <div
+                  class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm"
+                >
+                  <h4 class="font-bold text-slate-700 mb-3">
+                    Risk Factors Analysis
+                  </h4>
+                  <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                      <span>Resource Utilization > 95%</span
+                      ><span class="text-red-500 font-bold">Critical</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                      <div
+                        class="bg-red-500 h-2 rounded-full"
+                        style="width: 85%"
+                      ></div>
+                    </div>
+                    <div class="flex justify-between text-sm mt-2">
+                      <span>Budget Variance</span
+                      ><span class="text-amber-500 font-bold">Warning</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                      <div
+                        class="bg-amber-500 h-2 rounded-full"
+                        style="width: 60%"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Market View -->
+            <div id="view-market" class="hidden p-6 h-full">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i data-lucide="globe" class="mr-2 text-purple-600"></i>
+                  Market Intelligence
+                </h3>
+                <span
+                  class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded border border-purple-200"
+                  >Source: Live Feeds</span
+                >
+              </div>
+              <div class="space-y-4">
+                <div
+                  class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm"
+                >
+                  <div class="flex justify-between items-start mb-2">
+                    <span
+                      class="text-[10px] px-2 py-0.5 rounded-full uppercase font-bold bg-green-100 text-green-700"
+                      >Positive</span
+                    >
+                    <span class="text-xs text-slate-400">2h ago</span>
+                  </div>
+                  <h4 class="font-bold text-slate-800 mb-1">
+                    Global Supply Chain Disruptions Ease in Q3
+                  </h4>
+                  <div class="flex items-center justify-between mt-2">
+                    <span class="text-xs text-slate-500 font-medium"
+                      >Reuters</span
+                    >
+                  </div>
+                </div>
+                <div
+                  class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm"
+                >
+                  <div class="flex justify-between items-start mb-2">
+                    <span
+                      class="text-[10px] px-2 py-0.5 rounded-full uppercase font-bold bg-red-100 text-red-700"
+                      >Negative</span
+                    >
+                    <span class="text-xs text-slate-400">4h ago</span>
+                  </div>
+                  <h4 class="font-bold text-slate-800 mb-1">
+                    Tech Sector Faces New Regulatory Challenges in EU
+                  </h4>
+                  <div class="flex items-center justify-between mt-2">
+                    <span class="text-xs text-slate-500 font-medium"
+                      >Bloomberg</span
+                    >
+                  </div>
+                </div>
+              </div>
+              <div
+                class="mt-6 bg-purple-50 p-4 rounded-lg border border-purple-100"
+              >
+                <h4 class="font-bold text-purple-800 mb-2 text-sm">
+                  AI Insight
+                </h4>
+                <p class="text-xs text-purple-700">
+                  Based on recent news, there is a
+                  <strong>High Probability</strong> of increased demand for
+                  Cloud Migration services in the EU region due to new
+                  regulatory compliance requirements.
+                </p>
+              </div>
+            </div>
+
+            <!-- Invoice View -->
+            <div id="view-invoice" class="hidden p-6 h-full">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i data-lucide="file-text" class="mr-2 text-orange-600"></i>
+                  Invoice AI
+                </h3>
+                <span
+                  class="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded border border-orange-200"
+                  >Model: LayoutLMv3</span
+                >
+              </div>
+              <div class="grid grid-cols-2 gap-6 h-[400px]">
+                <div
+                  class="bg-slate-800 rounded-lg p-4 flex items-center justify-center border border-slate-600 relative overflow-hidden"
+                >
+                  <i
+                    data-lucide="file-text"
+                    size="64"
+                    class="text-slate-500 mb-2"
+                  ></i>
+                  <p class="text-slate-400 text-xs absolute bottom-4">
+                    Scanned Document Preview
+                  </p>
+                  <div
+                    class="absolute top-1/4 left-1/4 w-1/2 h-8 border-2 border-green-400 opacity-60"
+                  ></div>
+                </div>
+                <div
+                  class="bg-white border border-slate-200 rounded-lg p-4 overflow-auto font-mono text-sm"
+                >
+                  <div
+                    class="flex items-center justify-between mb-4 border-b border-slate-100 pb-2"
+                  >
+                    <span class="font-bold text-slate-700">Extracted Data</span>
+                    <span
+                      class="flex items-center text-green-600 text-xs font-bold"
+                      ><i data-lucide="check-circle" size="12" class="mr-1"></i>
+                      98% Conf.</span
+                    >
+                  </div>
+                  <div class="space-y-3">
+                    <div>
+                      <span class="text-slate-400 block text-xs">Vendor</span
+                      ><span class="text-slate-800 font-bold"
+                        >Acme Corp Services</span
+                      >
+                    </div>
+                    <div class="flex justify-between">
+                      <div>
+                        <span class="text-slate-400 block text-xs"
+                          >Invoice #</span
+                        ><span class="text-slate-800">INV-2024-001</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-400 block text-xs">Date</span
+                        ><span class="text-slate-800">2024-10-15</span>
+                      </div>
+                    </div>
+                    <div class="pt-2 flex justify-between items-center">
+                      <span class="font-bold text-slate-700">Total</span
+                      ><span class="font-bold text-green-600 text-lg"
+                        >$12,450.00</span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script>
+      // Initialize
+      lucide.createIcons();
+      let currentSection = "overview";
+      let chartInstance = null;
+      let forecastChartInstance = null;
+      let currentForecastType = "revenue";
+
+      // Navigation Logic
+      function navigate(sectionId) {
+        // Update Sidebar UI
+        document.querySelectorAll("nav button").forEach((btn) => {
+          if (btn.id.startsWith("nav-")) {
+            btn.className =
+              "w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-slate-300 hover:bg-slate-800";
+          }
+        });
+        const activeBtn = document.getElementById("nav-" + sectionId);
+        if (activeBtn)
+          activeBtn.className =
+            "w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors bg-blue-600 text-white";
+
+        // Update Main Content
+        const main = document.getElementById("main-content");
+        const template = document.getElementById("tpl-" + sectionId);
+        if (template) {
+          main.innerHTML = template.innerHTML;
+          lucide.createIcons();
+
+          // Initialize Charts based on section
+          if (sectionId === "overview") initOverviewChart();
+          if (sectionId === "forecaster") {
+            initForecastChart();
+            setForecastType(currentForecastType); // Re-apply current forecast type
+          }
+        }
+        currentSection = sectionId;
+      }
+
+      // AI Insighter Tab Logic
+      function switchAITab(tabId) {
+        // Update Tabs
+        document.querySelectorAll("#ai-nav button").forEach((btn) => {
+          btn.className =
+            "w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100";
+        });
+        const activeBtn = document.getElementById("ai-tab-" + tabId);
+        if (activeBtn)
+          activeBtn.className =
+            "w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700";
+
+        // Update Content
+        document
+          .querySelectorAll("#ai-content > div")
+          .forEach((div) => div.classList.add("hidden"));
+        document.getElementById("view-" + tabId).classList.remove("hidden");
+      }
+
+      // Charts
+      let projectStatusChart = null;
+
+      function initOverviewChart() {
+        const ctx = document.getElementById("overviewChart").getContext("2d");
+        if (chartInstance) {
+          chartInstance.destroy();
+        }
+
+        const gradient1 = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient1.addColorStop(0, "rgba(59, 130, 246, 0.8)");
+        gradient1.addColorStop(1, "rgba(59, 130, 246, 0.3)");
+
+        chartInstance = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: ["May", "Jun", "Jul", "Aug", "Sep", "Oct"],
+            datasets: [
+              {
+                label: "Revenue ($K)",
+                data: [180, 190, 185, 200, 210, 220],
+                backgroundColor: gradient1,
+                borderRadius: 8,
+                borderWidth: 2,
+                borderColor: "#3b82f6",
+                order: 2,
+              },
+              {
+                label: "Cost ($K)",
+                data: [120, 130, 125, 140, 145, 150],
+                borderColor: "#ef4444",
+                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                type: "line",
+                fill: true,
+                tension: 0.4,
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: "#ef4444",
+                pointBorderColor: "#fff",
+                pointBorderWidth: 2,
+                order: 1,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: {
+                  padding: 15,
+                  usePointStyle: true,
+                  font: { size: 12, weight: "500" },
+                },
+              },
+              tooltip: {
+                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                padding: 12,
+                borderRadius: 8,
+                titleFont: { size: 14, weight: "bold" },
+                bodyFont: { size: 13 },
+                callbacks: {
+                  label: function (context) {
+                    return (
+                      context.dataset.label + ": $" + context.parsed.y + "K"
+                    );
+                  },
+                },
+              },
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: "rgba(0, 0, 0, 0.05)",
+                  drawBorder: false,
+                },
+                ticks: {
+                  callback: function (value) {
+                    return "$" + value + "K";
+                  },
+                },
+              },
+              x: {
+                grid: {
+                  display: false,
+                  drawBorder: false,
+                },
+              },
+            },
+          },
+        });
+
+        initProjectStatusChart();
+      }
+
+      function initProjectStatusChart() {
+        const ctx = document.getElementById("projectStatusChart");
+        if (!ctx) return;
+
+        if (projectStatusChart) {
+          projectStatusChart.destroy();
+        }
+
+        projectStatusChart = new Chart(ctx.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: ["Active", "At Risk", "Completed", "On Hold"],
+            datasets: [
+              {
+                data: [8, 2, 3, 1],
+                backgroundColor: ["#10b981", "#ef4444", "#3b82f6", "#f59e0b"],
+                borderWidth: 3,
+                borderColor: "#fff",
+                hoverOffset: 10,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: {
+                  padding: 15,
+                  usePointStyle: true,
+                  font: { size: 12, weight: "500" },
+                },
+              },
+              tooltip: {
+                backgroundColor: "rgba(0, 0, 0, 0.8)",
+                padding: 12,
+                borderRadius: 8,
+                callbacks: {
+                  label: function (context) {
+                    const total = context.dataset.data.reduce(
+                      (a, b) => a + b,
+                      0
+                    );
+                    const percentage = Math.round(
+                      (context.parsed / total) * 100
+                    );
+                    return (
+                      context.label +
+                      ": " +
+                      context.parsed +
+                      " (" +
+                      percentage +
+                      "%)"
+                    );
+                  },
+                },
+              },
+            },
+            cutout: "65%",
+          },
+        });
+      }
+
+      function initForecastChart() {
+        const ctx = document.getElementById("forecastChart").getContext("2d");
+        if (forecastChartInstance) {
+          forecastChartInstance.destroy();
+        }
+
+        const gradientStat = ctx.createLinearGradient(0, 0, 0, 400);
+        gradientStat.addColorStop(0, "rgba(59, 130, 246, 0.2)");
+        gradientStat.addColorStop(1, "rgba(59, 130, 246, 0)");
+
+        const gradientAI = ctx.createLinearGradient(0, 0, 0, 400);
+        gradientAI.addColorStop(0, "rgba(168, 85, 247, 0.2)");
+        gradientAI.addColorStop(1, "rgba(168, 85, 247, 0)");
+
+        // Initial Data (Revenue)
+        const labels = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+        const dataStat = [
+          150, 155, 160, 158, 162, 165, 170, 172, 175, 178, 180, 185,
+        ];
+        const dataAI = [
+          152, 160, 168, 170, 178, 185, 192, 198, 205, 210, 218, 225,
+        ];
+
+        forecastChartInstance = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Statistical (ARIMA)",
+                data: dataStat,
+                borderColor: "#3b82f6",
+                backgroundColor: gradientStat,
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+              },
+              {
+                label: "AI-Assisted (XGBoost)",
+                data: dataAI,
+                borderColor: "#a855f7",
+                backgroundColor: gradientAI,
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: "bottom" } },
+          },
+        });
+      }
+
+      function setForecastType(type) {
+        currentForecastType = type;
+        // Update Buttons
+        ["revenue", "profit", "projects", "resources"].forEach((t) => {
+          const btn = document.getElementById("ft-" + t);
+          if (t === type) {
+            btn.className =
+              "px-6 py-3 rounded-lg font-medium transition-colors bg-blue-600 text-white";
+          } else {
+            btn.className =
+              "px-6 py-3 rounded-lg font-medium transition-colors bg-white text-slate-700 border border-slate-300 hover:bg-slate-50";
+          }
+        });
+
+        // Update Data Mock
+        let statVal, aiVal, confVal, title;
+        let dataS, dataA;
+
+        if (type === "revenue") {
+          title = "Revenue - Next 12 Months";
+          statVal = "$198K";
+          aiVal = "$215K";
+          confVal = "92%";
+          dataS = [150, 155, 160, 158, 162, 165, 170, 172, 175, 178, 180, 185];
+          dataA = [152, 160, 168, 170, 178, 185, 192, 198, 205, 210, 218, 225];
+        } else if (type === "profit") {
+          title = "Profit - Next 12 Months";
+          statVal = "$45K";
+          aiVal = "$58K";
+          confVal = "89%";
+          dataS = [30, 32, 35, 34, 36, 38, 40, 42, 43, 45, 46, 48];
+          dataA = [31, 35, 38, 40, 45, 48, 52, 55, 58, 60, 62, 65];
+        } else if (type === "projects") {
+          title = "Project Volume - Next 12 Months";
+          statVal = "18";
+          aiVal = "22";
+          confVal = "95%";
+          dataS = [12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 18];
+          dataA = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 21, 22];
+        } else {
+          title = "Resource Demand - Next 12 Months";
+          statVal = "2.4K hrs";
+          aiVal = "2.8K hrs";
+          confVal = "91%";
+          dataS = [1.8, 1.9, 2.0, 2.0, 2.1, 2.1, 2.2, 2.2, 2.3, 2.3, 2.4, 2.4];
+          dataA = [1.8, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.8, 2.9];
+        }
+
+        document.getElementById("fc-chart-title").innerText = title;
+        document.getElementById("fc-stat-val").innerText = statVal;
+        document.getElementById("fc-ai-val").innerText = aiVal;
+        document.getElementById("fc-conf-val").innerText = confVal;
+
+        if (forecastChartInstance) {
+          forecastChartInstance.data.datasets[0].data = dataS;
+          forecastChartInstance.data.datasets[1].data = dataA;
+          forecastChartInstance.update();
+        }
+      }
+
+      // Simulator Logic
+      function updateSimUI() {
+        const fte = document.getElementById("sim-fte").value;
+        const rate = document.getElementById("sim-rate").value;
+        document.getElementById("sim-fte-val").innerText = fte + " FTE";
+        document.getElementById("sim-rate-val").innerText = "$" + rate + "/hr";
+      }
+
+      function runOptimizer(mode) {
+        document.getElementById("sim-empty").classList.add("hidden");
+        document.getElementById("sim-content").classList.remove("hidden");
+
+        let rev, prof, time, recs;
+
+        if (mode === "auto") {
+          // Auto optimized values
+          rev = 185;
+          prof = 72;
+          time = 4.5;
+          document.getElementById("sim-fte").value = 8;
+          document.getElementById("sim-rate").value = 180;
+          updateSimUI();
+          recs = [
+            "AI-recommended optimal team size: 8 FTEs",
+            "Suggested billing rate: $180/hr",
+            "Implement CI/CD pipeline for 40% faster deployments",
+            "Use offshore resources for non-critical tasks",
+          ];
+        } else {
+          // Manual values based on sliders (mock)
+          const fte = parseInt(document.getElementById("sim-fte").value);
+          const rate = parseInt(document.getElementById("sim-rate").value);
+          rev = Math.round((fte * rate * 160 * 6) / 1000);
+          prof = Math.round(rev * 0.35);
+          time = Math.max(3, 8 - fte * 0.2);
+          recs = [
+            `Reduce FTE from ${fte} to ${Math.max(
+              1,
+              fte - 1
+            )} by optimizing resource allocation`,
+            `Increase billing rate from $${rate}/hr to $${Math.round(
+              rate * 1.15
+            )}/hr`,
+          ];
+        }
+
+        document.getElementById("res-rev-opt").innerText = "$" + rev + "K";
+        document.getElementById("res-prof-opt").innerText = "$" + prof + "K";
+        document.getElementById("res-time-opt").innerText =
+          time.toFixed(1) + " months";
+
+        // Update Recs
+        const recsHtml = recs
+          .map(
+            (r, i) => `
+                <div class="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
+                    <div class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">${
+                      i + 1
+                    }</div>
+                    <p class="text-sm text-slate-700">${r}</p>
+                </div>`
+          )
+          .join("");
+        document.getElementById("sim-recs").innerHTML = recsHtml;
+
+        // Update Summary
+        document.getElementById("sim-sum-curr").innerHTML = `
+                <li>• Revenue: $144K</li>
+                <li>• Profit: $36K</li>
+                <li>• Timeline: 6 months</li>
+                <li>• Margin: 25%</li>`;
+
+        document.getElementById("sim-sum-opt").innerHTML = `
+                <li>• Revenue: $${rev}K</li>
+                <li>• Profit: $${prof}K</li>
+                <li>• Timeline: ${time.toFixed(1)} months</li>
+                <li>• Margin: ${Math.round((prof / rev) * 100)}%</li>`;
+      }
+
+      // Chat Logic
+      function sendMsg(text) {
+        const input = document.getElementById("chat-input");
+        const msg = text || input.value;
+        if (!msg) return;
+
+        const container = document.getElementById("chat-messages");
+
+        // User Msg
+        container.innerHTML += `
+                <div class="flex justify-end animate-fade-in">
+                    <div class="bg-blue-600 text-white rounded-lg p-4 max-w-[80%]">
+                        <p class="text-sm">${msg}</p>
+                    </div>
+                </div>`;
+
+        input.value = "";
+        container.scrollTop = container.scrollHeight;
+
+        // Mock AI Response
+        setTimeout(() => {
+          let response = "I'm analyzing the data...";
+          if (msg.toLowerCase().includes("risk"))
+            response =
+              "Based on current burn rates, **Project Alpha** is 15% over budget. I recommend reallocating 2 junior resources.";
+          else if (msg.toLowerCase().includes("revenue"))
+            response =
+              "Projected revenue for Q4 is **$1.2M**, which is a 5% increase year-over-year.";
+          else if (msg.toLowerCase().includes("cost"))
+            response =
+              "Total operational cost in Q3 was **$850,000**, which is 2% below budget.";
+          else if (msg.toLowerCase().includes("underperforming"))
+            response =
+              "The top 5 underperforming centers are: \n1. Mumbai (SLA: 88%)\n2. Pune (SLA: 90%)\n3. Bangalore (SLA: 91%)\n4. Chennai (SLA: 92%)\n5. Hyderabad (SLA: 93%)";
+
+          container.innerHTML += `
+                    <div class="flex justify-start animate-fade-in">
+                        <div class="bg-slate-100 text-slate-900 rounded-lg p-4 max-w-[80%]">
+                            <p class="text-sm whitespace-pre-line">${response}</p>
+                        </div>
+                    </div>`;
+          container.scrollTop = container.scrollHeight;
+        }, 1000);
+      }
+
+      // Init
+      navigate("overview");
+    </script>
+  </body>
+</html>
