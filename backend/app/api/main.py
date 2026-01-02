@@ -1,6 +1,5 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
 from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse
-from desktop_client.app.storage.store import shift_store
 from sqlalchemy.orm import Session
 from backend.app.db.mySqlConfig import sessionLocal,Base, engine
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
