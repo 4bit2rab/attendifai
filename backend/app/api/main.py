@@ -1,6 +1,7 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
-from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload, ActivityThresholdCreate, ActivityThresholdResponse
+from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload, ActivityThresholdCreate, ActivityThresholdResponse,MonthlySalaryResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from backend.app.db.mySqlConfig import sessionLocal,Base, engine
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
@@ -410,7 +411,6 @@ def get_monthly_report(
         end_date = date(year + 1, 1, 1)
     else:
         end_date = date(year, month + 1, 1)
-
     results = (
         db.query(
             Employee.employee_id,
@@ -441,6 +441,47 @@ def get_monthly_report(
     )
 
     return results
+
+
+
+@app.get("/report/salary", response_model=List[MonthlySalaryResponse])
+def get_monthly_salary(
+    authorization: str = Header(...),
+    year: int = Query(..., ge=2000),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+):
+    manager_id = get_user_id(authorization)
+
+    start_date = date(year, month, 1)
+    end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+    # Sum per_day_base_salary grouped by employee
+    results = (
+        db.query(
+            Employee.employee_id,
+            Employee.employee_name,
+            func.sum(EmployeeActivityLog.per_day_base_salary).label("total_salary")
+        )
+        .join(EmployeeActivityLog, EmployeeActivityLog.employee_id == Employee.employee_id)
+        .join(ManagerEmployeeMap, ManagerEmployeeMap.employee_id == Employee.employee_id)
+        .filter(
+            ManagerEmployeeMap.manager_id == manager_id,
+            EmployeeActivityLog.log_date >= start_date,
+            EmployeeActivityLog.log_date < end_date,
+        )
+        .group_by(Employee.employee_id, Employee.employee_name)
+        .all()
+    )
+
+    return [
+        {
+            "employee_id": row.employee_id,
+            "employee_name": row.employee_name,
+            "total_salary": float(row.total_salary or 0)
+        }
+        for row in results
+    ]
 
 @app.put("/register/manger")
 def register_manager(manager_email: str, password: str, db: Session = Depends(get_db)):

@@ -23,3 +23,16 @@ export const getMonthlyReport = async (year, month) => {
     );
   return response.data;
 };
+
+export const getMonthlySalary = async (year, month) => {
+  const token = sessionStorage.getItem("access_token");
+
+  if (!token) throw new Error("Authorization token missing");
+
+  const response = await axios.get(`${API_BASE_URL}/report/salary`, {
+    headers: { Authorization: `Bearer ${token}` },
+    params: { year, month },
+  });
+
+  return response.data; // [{ employee_id, employee_name, total_salary }]
+};

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getMonthlyReport } from "../api/reportApi";
+import { getMonthlyReport, getMonthlySalary } from "../api/reportApi"; // import salary API
 import { motion, AnimatePresence } from "framer-motion";
 import * as XLSX from "xlsx";
 
@@ -21,13 +21,25 @@ export default function Report() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [data, setData] = useState([]);
+  const [salaries, setSalaries] = useState({}); // { employee_name: total_salary }
   const [loading, setLoading] = useState(false);
 
   const loadReport = async () => {
     setLoading(true);
     try {
-      const res = await getMonthlyReport(year, month);
-      setData(res);
+      // Fetch both daily report and monthly salary
+      const [dailyReport, salaryReport] = await Promise.all([
+        getMonthlyReport(year, month),
+        getMonthlySalary(year, month),
+      ]);
+
+      setData(dailyReport);
+
+      const salaryMap = {};
+      salaryReport.forEach((s) => {
+        salaryMap[s.employee_name] = s.total_salary;
+      });
+      setSalaries(salaryMap);
     } finally {
       setLoading(false);
     }
@@ -47,7 +59,7 @@ export default function Report() {
     map[r.employee_name][r.log_date] = r;
   });
 
-  /* ---------- Excel Export (unchanged) ---------- */
+  /* ---------- Excel Export (updated with salary) ---------- */
   const downloadExcel = () => {
     const workbook = XLSX.utils.book_new();
 
@@ -63,6 +75,10 @@ export default function Report() {
       subHeader.push("Productive", "Idle", "Overtime");
     }
 
+    // Add salary column header
+    topHeader.push("Total Salary");
+    subHeader.push("");
+
     const rows = employees.map((emp) => {
       const row = [emp];
       for (let d = 1; d <= days; d++) {
@@ -75,6 +91,8 @@ export default function Report() {
           r ? (r.over_time / 3600).toFixed(2) : 0
         );
       }
+      // Push salary
+      row.push(salaries[emp]?.toFixed(2) || 0);
       return row;
     });
 
@@ -110,7 +128,6 @@ export default function Report() {
           onChange={(e) => setYear(+e.target.value)}
           className="border p-1 rounded w-24"
         />
-
         <label>Month</label>
         <input
           type="number"
@@ -118,7 +135,6 @@ export default function Report() {
           onChange={(e) => setMonth(+e.target.value)}
           className="border p-1 rounded w-20"
         />
-
         <button
           onClick={loadReport}
           disabled={loading}
@@ -126,7 +142,6 @@ export default function Report() {
         >
           {loading ? "Loading..." : "Load"}
         </button>
-
         <button
           onClick={downloadExcel}
           disabled={!data.length}
@@ -142,20 +157,14 @@ export default function Report() {
       ) : (
         <div
           className="border rounded-lg overflow-hidden"
-          style={{
-            height: "420px",
-            display: "grid",
-            gridTemplateColumns: "220px 1fr",
-          }}
+          style={{ height: "420px", display: "grid", gridTemplateColumns: "220px 1fr" }}
         >
           {/* Employee column */}
           <div className="bg-gray-100 overflow-y-auto">
             <table className="border-collapse w-full">
               <thead>
                 <tr>
-                  <th className="sticky top-0 bg-gray-200 border p-2">
-                    Employee
-                  </th>
+                  <th className="sticky top-0 bg-gray-200 border p-2">Employee</th>
                 </tr>
               </thead>
               <tbody>
@@ -172,7 +181,7 @@ export default function Report() {
           <div className="overflow-x-scroll overflow-y-auto">
             <table
               className="border-collapse"
-              style={{ width: `${days * 80}px` }}
+              style={{ width: `${days * 80 + 120}px` }} // +120 for salary column
             >
               <thead>
                 <tr>
@@ -183,20 +192,16 @@ export default function Report() {
                       <th
                         key={i}
                         className={`sticky top-0 border p-2 text-sm ${
-                          day === 0
-                            ? "bg-red-100"
-                            : day === 6
-                            ? "bg-yellow-100"
-                            : "bg-gray-50"
+                          day === 0 ? "bg-red-100" : day === 6 ? "bg-yellow-100" : "bg-gray-50"
                         }`}
                       >
                         {i + 1}
                       </th>
                     );
                   })}
+                  <th className="sticky top-0 border p-2 text-sm bg-gray-200">Salary</th>
                 </tr>
               </thead>
-
               <tbody>
                 <AnimatePresence>
                   {employees.map((emp) => (
@@ -205,14 +210,9 @@ export default function Report() {
                         const date = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
                         const r = map[emp][date];
 
-                        if (!r)
-                          return <td key={i} className="border h-10" />;
+                        if (!r) return <td key={i} className="border h-10" />;
 
-                        const total =
-                          r.productive_time +
-                          r.idle_time +
-                          r.over_time;
-
+                        const total = r.productive_time + r.idle_time + r.over_time;
                         const prod = (r.productive_time / total) * 100;
                         const idle = (r.idle_time / total) * 100;
                         const over = (r.over_time / total) * 100;
@@ -220,33 +220,27 @@ export default function Report() {
                         return (
                           <td key={i} className="border h-10 relative group">
                             <div className="flex items-center justify-center h-full">
-                                <div className="flex w-full h-6 bg-gray-200 rounded overflow-hidden">
-                                <div
-                                  className="bg-green-500"
-                                  style={{ width: `${prod}%` }}
-                                />
-                                <div
-                                  className="bg-orange-400"
-                                  style={{ width: `${idle}%` }}
-                                />
-                                <div
-                                  className="bg-red-500"
-                                  style={{ width: `${over}%` }}
-                                />
+                              <div className="flex w-full h-6 bg-gray-200 rounded overflow-hidden">
+                                <div className="bg-green-500" style={{ width: `${prod}%` }} />
+                                <div className="bg-orange-400" style={{ width: `${idle}%` }} />
+                                <div className="bg-red-500" style={{ width: `${over}%` }} />
                               </div>
                             </div>
-
 
                             {/* Tooltip */}
                             <div className="absolute z-30 hidden group-hover:block bg-black text-white text-xs rounded p-2 
                                           left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap shadow-lg">
-                            <div>Productive: {formatTime(r.productive_time)}</div>
-                            <div>Idle: {formatTime(r.idle_time)}</div>
-                            <div>Overtime: {formatTime(r.over_time)}</div>
-                          </div>
+                              <div>Productive: {formatTime(r.productive_time)}</div>
+                              <div>Idle: {formatTime(r.idle_time)}</div>
+                              <div>Overtime: {formatTime(r.over_time)}</div>
+                            </div>
                           </td>
                         );
                       })}
+                      {/* Salary column */}
+                      <td className="border h-10 text-center font-medium bg-gray-100">
+                        {salaries[emp]?.toFixed(2) || 0}
+                      </td>
                     </motion.tr>
                   ))}
                 </AnimatePresence>
@@ -272,6 +266,9 @@ export default function Report() {
         </span>
         <span className="flex items-center gap-2">
           <div className="w-4 h-4 bg-red-100 rounded" /> Sunday
+        </span>
+        <span className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-gray-200 rounded" /> Month-to-Date Salary
         </span>
       </div>
     </div>

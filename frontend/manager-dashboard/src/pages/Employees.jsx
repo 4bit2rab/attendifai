@@ -4,7 +4,7 @@ import { getEmployees } from "../api/employeesApi";
 import { getShifts } from "../api/shiftsApi";
 import axios from "axios";
 
-const API_BASE_URL = "http://127.0.0.1:9000";
+const API_BASE_URL = "http://127.0.0.1:8000";
 
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
