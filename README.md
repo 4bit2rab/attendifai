@@ -33,36 +33,34 @@ It tracks **productive, idle, and overtime hours** of employees and allows manag
 
 
 4. Start the backend server:
-    - uvicorn backend.app.api.main:app --reload
+    - uvicorn app.api.main:app --reload
     - The server will run at http://127.0.0.1:8000
 
 5. CORS is enabled for http://localhost:5173 to allow the frontend to connect.
 
-6. Desktop Client Setup (PyQt6)
-    - Create and activate a virtual environment
-    - Install Python dependencies:
-        - pip install -r requirements.txt
+## Desktop Client Setup (PyQt6)
+1. Create and activate a virtual environment
+2. Install Python dependencies:
+    - pip install -r requirements.txt
+3. Run the desktop application:
+    - python desktop_client/app/monitoring/main.py
 
-    - Run the desktop application:
-        - python desktop_client/app/monitoring/main.py
 
-
-First-time users:
+## First-time users:
 Enter your email in the registration window to receive a token from the backend.
 After registration, the Attendance Tracker window will start.
 
-Usage
-- For Managers:
+## Usage For Managers:
 - View daily and monthly productivity reports
 - Approve or reject overtime hours
 - Assign and manage employee shifts
 - Set global activity thresholds
 
-For Employees:
+## Usage For Employees:
  - Record productive, idle, and overtime hours daily
  - Receive notifications for overtime approvals
     
-Notes
+## Notes
 
 - Ensure the backend server is running before starting the desktop client.
 - Requires Python
