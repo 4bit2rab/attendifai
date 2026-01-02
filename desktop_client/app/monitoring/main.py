@@ -117,6 +117,29 @@ def sync_productivity():
                 f"Sync failed [{response.status_code}]: {response.text}"
             )
 
+# ---------------- ACTIVITY THRESHOLD ----------------
+def fetch_activity_threshold() -> int:
+    
+    try:
+        token = load_token()
+        if not token:
+            print("No token found, using default threshold 5s")
+            return 5
+
+        headers = {"Authorization": f"Bearer {token}"}
+        response = requests.get(f"{BACKEND_URL}/activity-threshold", headers=headers, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            idle_threshold = data.get("idle_time_out", 5)
+            return idle_threshold
+        else:
+            print(f"Failed to fetch threshold [{response.status_code}], using default 5s")
+            return 5
+    except Exception as e:
+        print("Error fetching activity threshold, using default 5s:", e)
+        return 5
+
+
 
 # ---------------- ATTENDANCE APP ----------------
 class AttendanceApp:
@@ -128,7 +151,8 @@ class AttendanceApp:
         if self.shift_end_dt <= self.shift_start_dt:  # handle overnight shifts
             self.shift_end_dt += timedelta(days=1)
 
-        self.tracker = ActivityTracker(self,idle_threshold=5)  # 10s idle threshold
+        idle_threshold_seconds = fetch_activity_threshold()
+        self.tracker = ActivityTracker(self, idle_threshold=idle_threshold_seconds)
         self.tracker.start()
 
         self.shift_seconds = 0

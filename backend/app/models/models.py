@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import time,date
-from typing import Literal, List
+from typing import Literal,List
 
 class ProductivityPayload(BaseModel):
     log_date: date
@@ -33,6 +33,7 @@ class EmployeeRequest(BaseModel):
     shift_code: str
 
 class AttendanceResponse(BaseModel):
+    employee_id:str
     employee_name: str
     log_date: date
     productive_time: int
@@ -77,3 +78,23 @@ class EmployeeInput(BaseModel):
 
     class Config:   
         from_attributes = True
+
+class ApprovalItem(BaseModel):
+    employee_id: str
+    log_date: date
+    status: str 
+
+class OvertimeApprovalPayload(BaseModel):
+    approvals: List[ApprovalItem]
+
+class MonthlySalaryResponse(BaseModel):
+    employee_id: str
+    employee_name: str
+    total_salary: float
+    
+class ActivityThresholdCreate(BaseModel):
+    idle_time_out: int
+
+class ActivityThresholdResponse(BaseModel):
+    id: int
+    idle_time_out: int

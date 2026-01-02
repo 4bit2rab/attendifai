@@ -6,6 +6,7 @@ import {
   UsersIcon,
   BarChartIcon,
   LogOutIcon,
+  CheckSquare,
 } from "lucide-react";
 import { logout } from "../utils/logout";
 import { useNavigate } from "react-router-dom"
@@ -17,6 +18,7 @@ export default function Sidebar() {
     { name: "Shifts", path: "/shifts", icon: ClockIcon },
     { name: "Employees", path: "/employees", icon: UsersIcon },
     { name: "Monthly Report", path: "/report", icon: BarChartIcon },
+    { name: "Overtime Approval", path: "/overtime-approval", icon: CheckSquare },
   ];
   const navigate = useNavigate()
 

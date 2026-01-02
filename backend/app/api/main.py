@@ -1,19 +1,17 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
 from backend.app.ai.productivity_ai import calculate_productivity_with_ai
-from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse
-from desktop_client.app.storage.store import shift_store
+from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload, ActivityThresholdCreate, ActivityThresholdResponse,MonthlySalaryResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from backend.app.db.mySqlConfig import sessionLocal,Base, engine
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
-from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
-from backend.app.db.mySqlConfig import Base, engine
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken
 from typing import List
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager,EmployeeBaseSalary, ActivityThreshold
+from datetime import date
 from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager
 from datetime import date, timedelta
 from backend.app.core.security import hash_password
-from pydantic import BaseModel
 from jose import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.token_generator import get_user_id
@@ -75,12 +73,21 @@ def record_productivity(
     payload: ProductivityPayload, authorization: str = Header(...)
 ,db: Session = Depends(get_db)):
     employee_id = get_emp_id(authorization)
- 
+    emp_salary = (
+        db.query(EmployeeBaseSalary)
+        .filter(EmployeeBaseSalary.employee_id == employee_id)
+        .first()
+    )
+    hourly_salary = emp_salary.hourly_salary if emp_salary else 0
+    hours_worked = payload.productive_time / 3600
+    per_day_salary = hourly_salary * hours_worked
+
     employee_activity_log = EmployeeActivityLog(employee_id=employee_id,
     log_date=payload.log_date,
     productive_time=payload.productive_time,
     idle_time=payload.idle_time,
-    over_time=payload.over_time)
+    over_time=payload.over_time,
+    per_day_base_salary=per_day_salary)
     db.add(employee_activity_log)
     db.commit()
  
@@ -253,6 +260,7 @@ def get_attendance(
     manager_id = get_user_id(authorization)
     results = (
         db.query(
+            Employee.employee_id,
             Employee.employee_name,
             EmployeeActivityLog.log_date,
             EmployeeActivityLog.productive_time,
@@ -280,6 +288,7 @@ def get_attendance(
 
     return [
         AttendanceResponse(
+            employee_id=row.employee_id,
             employee_name=row.employee_name,
             log_date=row.log_date,
             productive_time=row.productive_time,
@@ -288,6 +297,43 @@ def get_attendance(
         )
         for row in results
     ]
+
+@app.get("/overtime")
+def get_overtime(
+    authorization: str = Header(...),
+    db: Session = Depends(get_db),
+):
+    manager_id = get_user_id(authorization)
+
+    results = (
+        db.query(
+            Employee.employee_id,
+            Employee.employee_name,
+            EmployeeActivityLog.log_date,
+            EmployeeActivityLog.over_time,
+            EmployeeActivityLog.overtime_approval,
+        )
+        .join(Employee, Employee.employee_id == EmployeeActivityLog.employee_id)
+        .join(ManagerEmployeeMap, ManagerEmployeeMap.employee_id == Employee.employee_id)
+        .filter(
+            ManagerEmployeeMap.manager_id == manager_id,
+            EmployeeActivityLog.over_time > 0,
+            EmployeeActivityLog.overtime_approval == 0
+        )
+        .order_by(EmployeeActivityLog.log_date)
+        .all()
+    )
+
+    return [
+        {
+            "employee_id": row.employee_id,
+            "employee_name": row.employee_name,
+            "log_date": row.log_date,
+            "over_time": row.over_time,
+        }
+        for row in results
+    ]
+
 
 # ---------------- Manager ---------------
 # Endpoint to create a new manager  
@@ -374,9 +420,9 @@ def get_monthly_report(
         end_date = date(year + 1, 1, 1)
     else:
         end_date = date(year, month + 1, 1)
-
     results = (
         db.query(
+            Employee.employee_id,
             Employee.employee_name,
             EmployeeActivityLog.log_date,
             EmployeeActivityLog.productive_time,
@@ -404,6 +450,47 @@ def get_monthly_report(
     )
 
     return results
+
+
+
+@app.get("/report/salary", response_model=List[MonthlySalaryResponse])
+def get_monthly_salary(
+    authorization: str = Header(...),
+    year: int = Query(..., ge=2000),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+):
+    manager_id = get_user_id(authorization)
+
+    start_date = date(year, month, 1)
+    end_date = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+
+    # Sum per_day_base_salary grouped by employee
+    results = (
+        db.query(
+            Employee.employee_id,
+            Employee.employee_name,
+            func.sum(EmployeeActivityLog.per_day_base_salary).label("total_salary")
+        )
+        .join(EmployeeActivityLog, EmployeeActivityLog.employee_id == Employee.employee_id)
+        .join(ManagerEmployeeMap, ManagerEmployeeMap.employee_id == Employee.employee_id)
+        .filter(
+            ManagerEmployeeMap.manager_id == manager_id,
+            EmployeeActivityLog.log_date >= start_date,
+            EmployeeActivityLog.log_date < end_date,
+        )
+        .group_by(Employee.employee_id, Employee.employee_name)
+        .all()
+    )
+
+    return [
+        {
+            "employee_id": row.employee_id,
+            "employee_name": row.employee_name,
+            "total_salary": float(row.total_salary or 0)
+        }
+        for row in results
+    ]
 
 @app.put("/register/manger")
 def register_manager(manager_email: str, password: str, db: Session = Depends(get_db)):
@@ -478,4 +565,81 @@ def employee_ranking(authorization: str = Header(...), start_date: date | None =
         },
         "rankings": rankings
     }
+
+@app.post("/overtime/approve")
+def approve_overtime(
+    payload: OvertimeApprovalPayload,
+    db: Session = Depends(get_db)
+):
+    for item in payload.approvals:
+        record = (
+            db.query(EmployeeActivityLog)
+            .filter(
+                EmployeeActivityLog.employee_id == item.employee_id,
+                EmployeeActivityLog.log_date == item.log_date
+            )
+            .first()
+        )
+
+        if not record:
+            continue
+
+        record.overtime_approval = True if item.status == "approved" else False
+        emp_salary = (
+            db.query(EmployeeBaseSalary)
+            .filter(EmployeeBaseSalary.employee_id == record.employee_id)
+            .first()
+        )
+        hourly_salary = emp_salary.hourly_salary if emp_salary else 0
+        over_hours_worked = record.over_time / 3600
+        over_time_salary = hourly_salary * over_hours_worked
+        record.per_day_base_salary=record.per_day_base_salary + over_time_salary
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Overtime approvals updated successfully"
+    }
+    
+@app.post("/activity-threshold", response_model=ActivityThresholdResponse)
+def create_or_update_activity_threshold(
+    payload: ActivityThresholdCreate,
+    db: Session = Depends(get_db)
+):
+    threshold = db.query(ActivityThreshold).first()
+    if threshold:
+        # Update existing
+        threshold.idle_time_out = payload.idle_time_out
+    else:
+        # Create new
+        threshold = ActivityThreshold(idle_time_out=payload.idle_time_out)
+        db.add(threshold)
+    db.commit()
+    db.refresh(threshold)
+    return threshold
+
+@app.put("/activity-threshold/{threshold_id}", response_model=ActivityThresholdResponse)
+def update_activity_threshold(
+    threshold_id: int,
+    payload: ActivityThresholdCreate,
+    db: Session = Depends(get_db)
+):
+    threshold = db.query(ActivityThreshold).filter(ActivityThreshold.id == threshold_id).first()
+    if not threshold:
+        raise HTTPException(status_code=404, detail="Threshold not found")
+    
+    threshold.idle_time_out = payload.idle_time_out
+    db.commit()
+    db.refresh(threshold)
+    return threshold
+
+@app.get("/activity-threshold")
+def get_activity_threshold(db: Session = Depends(get_db)):
+
+    threshold = db.query(ActivityThreshold).first()
+    if threshold:
+        return {"idle_time_out": threshold.idle_time_out}
+    return {"idle_time_out": 5}  # default
+
+
  

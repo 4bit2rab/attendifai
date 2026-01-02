@@ -88,9 +88,10 @@ def assign_employee_to_manager_record(db_session, mapping_request):
 def generate_employee_productivity_report(db_session, manager_id: str, start_date: date | None = None, end_date: date | None = None):
 
     # Default date logic
-    today = date.today()
-    end_date = end_date or today
-    start_date = start_date or (end_date - timedelta(days=30))
+    if not end_date and not start_date:
+        today = date.today()
+        end_date = end_date or today
+        start_date = start_date or (end_date - timedelta(days=30))
 
     # Fetch employees under the manager
     employee_mappings = db_session.query(ManagerEmployeeMap).filter(
@@ -129,9 +130,27 @@ def generate_employee_productivity_report(db_session, manager_id: str, start_dat
         .all()
     )
 
+    total_overtime_results = (
+        db_session.query(
+            EmployeeActivityLog.employee_id,
+            func.sum(EmployeeActivityLog.over_time).label("total_overtime_seconds")
+        )
+        .filter(
+            EmployeeActivityLog.employee_id.in_(employee_ids),
+            EmployeeActivityLog.log_date.between(start_date, end_date)
+        )
+        .group_by(EmployeeActivityLog.employee_id)
+        .all()
+    )
+
     employee_total_map = {
         row.employee_id: round(row.total_seconds / 3600, 2)
         for row in total_prodctivity_results
+    }
+
+    employee_overtime_map = {
+        row.employee_id: round(row.total_overtime_seconds / 3600, 2)
+        for row in total_overtime_results
     }
 
     employee_logs_map = defaultdict(list)
@@ -151,6 +170,7 @@ def generate_employee_productivity_report(db_session, manager_id: str, start_dat
             "employee_id": employee_id,
             "employee_name": db_session.query(Employee).filter(Employee.employee_id == employee_id).first().employee_name,
             "total_productive_hours": employee_total_map.get(employee_id, 0),
+            "total_overtime_hours": employee_overtime_map.get(employee_id, 0),
             "logs": employee_logs_map.get(employee_id, [])
         })
 
