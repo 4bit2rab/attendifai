@@ -1,17 +1,13 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
-from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse
+from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload
 from sqlalchemy.orm import Session
 from backend.app.db.mySqlConfig import sessionLocal,Base, engine
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
-from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
-from backend.app.db.mySqlConfig import Base, engine
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog,ShiftDetails,Employee,EmployeeToken,EmployeeBaseSalary
 from typing import List
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager,EmployeeBaseSalary
 from datetime import date
 from backend.app.core.security import hash_password
-from pydantic import BaseModel
 from jose import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from backend.app.core.token_generator import get_user_id
@@ -254,6 +250,7 @@ def get_attendance(
     manager_id = get_user_id(authorization)
     results = (
         db.query(
+            Employee.employee_id,
             Employee.employee_name,
             EmployeeActivityLog.log_date,
             EmployeeActivityLog.productive_time,
@@ -281,6 +278,7 @@ def get_attendance(
 
     return [
         AttendanceResponse(
+            employee_id=row.employee_id,
             employee_name=row.employee_name,
             log_date=row.log_date,
             productive_time=row.productive_time,
@@ -289,6 +287,43 @@ def get_attendance(
         )
         for row in results
     ]
+
+@app.get("/overtime")
+def get_overtime(
+    authorization: str = Header(...),
+    db: Session = Depends(get_db),
+):
+    manager_id = get_user_id(authorization)
+
+    results = (
+        db.query(
+            Employee.employee_id,
+            Employee.employee_name,
+            EmployeeActivityLog.log_date,
+            EmployeeActivityLog.over_time,
+            EmployeeActivityLog.overtime_approval,
+        )
+        .join(Employee, Employee.employee_id == EmployeeActivityLog.employee_id)
+        .join(ManagerEmployeeMap, ManagerEmployeeMap.employee_id == Employee.employee_id)
+        .filter(
+            ManagerEmployeeMap.manager_id == manager_id,
+            EmployeeActivityLog.over_time > 0,
+            EmployeeActivityLog.overtime_approval == 0
+        )
+        .order_by(EmployeeActivityLog.log_date)
+        .all()
+    )
+
+    return [
+        {
+            "employee_id": row.employee_id,
+            "employee_name": row.employee_name,
+            "log_date": row.log_date,
+            "over_time": row.over_time,
+        }
+        for row in results
+    ]
+
 
 # ---------------- Manager ---------------
 # Endpoint to create a new manager  
@@ -378,6 +413,7 @@ def get_monthly_report(
 
     results = (
         db.query(
+            Employee.employee_id,
             Employee.employee_name,
             EmployeeActivityLog.log_date,
             EmployeeActivityLog.productive_time,
@@ -425,4 +461,37 @@ def productivity_insights(authorization: str = Header(...), start_date: date | N
         "trends": trends
     }
 
- 
+@app.post("/overtime/approve")
+def approve_overtime(
+    payload: OvertimeApprovalPayload,
+    db: Session = Depends(get_db)
+):
+    for item in payload.approvals:
+        record = (
+            db.query(EmployeeActivityLog)
+            .filter(
+                EmployeeActivityLog.employee_id == item.employee_id,
+                EmployeeActivityLog.log_date == item.log_date
+            )
+            .first()
+        )
+
+        if not record:
+            continue
+
+        record.overtime_approval = True if item.status == "approved" else False
+        emp_salary = (
+            db.query(EmployeeBaseSalary)
+            .filter(EmployeeBaseSalary.employee_id == record.employee_id)
+            .first()
+        )
+        hourly_salary = emp_salary.hourly_salary if emp_salary else 0
+        over_hours_worked = record.over_time / 3600
+        over_time_salary = hourly_salary * over_hours_worked
+        record.per_day_base_salary=record.per_day_base_salary + over_time_salary
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Overtime approvals updated successfully"
+    }
