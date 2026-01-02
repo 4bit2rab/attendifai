@@ -75,7 +75,6 @@ export default function OvertimeApproval() {
                 <th className="p-3 text-left text-gray-700 uppercase text-sm">Date</th>
                 <th className="p-3 text-left text-gray-700 uppercase text-sm">Overtime</th>
                 <th className="p-3 text-left text-gray-700 uppercase text-sm">Action</th>
-                <th className="p-3 text-left text-gray-700 uppercase text-sm">Overtime</th>
               </tr>
             </thead>
             <tbody>

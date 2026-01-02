@@ -11,7 +11,7 @@ from overtime_ui import OvertimeNotification
 
 
 DB_PATH = "attendance_agent.db"
-BACKEND_URL = "http://127.0.0.1:9000"
+BACKEND_URL = "http://127.0.0.1:8000"
 
 # ---------------- DATABASE / TOKEN ----------------
 def save_token(token: str):
