@@ -71,3 +71,10 @@ class ApprovalItem(BaseModel):
 
 class OvertimeApprovalPayload(BaseModel):
     approvals: List[ApprovalItem]
+    
+class ActivityThresholdCreate(BaseModel):
+    idle_time_out: int
+
+class ActivityThresholdResponse(BaseModel):
+    id: int
+    idle_time_out: int
