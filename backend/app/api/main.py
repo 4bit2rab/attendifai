@@ -1,12 +1,12 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
-from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload,MonthlySalaryResponse
+from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload, ActivityThresholdCreate, ActivityThresholdResponse,MonthlySalaryResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from backend.app.db.mySqlConfig import sessionLocal,Base, engine
 from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
 from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, create_manager_record, generate_employee_productivity_report, update_manager_password
 from typing import List
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager,EmployeeBaseSalary
+from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager,EmployeeBaseSalary, ActivityThreshold
 from datetime import date
 from backend.app.core.security import hash_password
 from jose import jwt
@@ -536,3 +536,44 @@ def approve_overtime(
         "success": True,
         "message": "Overtime approvals updated successfully"
     }
+    
+@app.post("/activity-threshold", response_model=ActivityThresholdResponse)
+def create_or_update_activity_threshold(
+    payload: ActivityThresholdCreate,
+    db: Session = Depends(get_db)
+):
+    threshold = db.query(ActivityThreshold).first()
+    if threshold:
+        # Update existing
+        threshold.idle_time_out = payload.idle_time_out
+    else:
+        # Create new
+        threshold = ActivityThreshold(idle_time_out=payload.idle_time_out)
+        db.add(threshold)
+    db.commit()
+    db.refresh(threshold)
+    return threshold
+
+@app.put("/activity-threshold/{threshold_id}", response_model=ActivityThresholdResponse)
+def update_activity_threshold(
+    threshold_id: int,
+    payload: ActivityThresholdCreate,
+    db: Session = Depends(get_db)
+):
+    threshold = db.query(ActivityThreshold).filter(ActivityThreshold.id == threshold_id).first()
+    if not threshold:
+        raise HTTPException(status_code=404, detail="Threshold not found")
+    
+    threshold.idle_time_out = payload.idle_time_out
+    db.commit()
+    db.refresh(threshold)
+    return threshold
+
+@app.get("/activity-threshold")
+def get_activity_threshold(db: Session = Depends(get_db)):
+
+    threshold = db.query(ActivityThreshold).first()
+    if threshold:
+        return {"idle_time_out": threshold.idle_time_out}
+    return {"idle_time_out": 5}  # default
+

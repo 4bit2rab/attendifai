@@ -76,3 +76,10 @@ class MonthlySalaryResponse(BaseModel):
     employee_id: str
     employee_name: str
     total_salary: float
+    
+class ActivityThresholdCreate(BaseModel):
+    idle_time_out: int
+
+class ActivityThresholdResponse(BaseModel):
+    id: int
+    idle_time_out: int

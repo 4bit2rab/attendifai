@@ -1,31 +1,40 @@
 import { useEffect, useState } from "react";
-import { UserPlus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { getEmployees } from "../api/employeesApi";
 import { getShifts } from "../api/shiftsApi";
 import axios from "axios";
 
+const API_BASE_URL = "http://127.0.0.1:9000";
+
 export default function Employees() {
   const [employees, setEmployees] = useState([]);
   const [shifts, setShifts] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Assign shift
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedShift, setSelectedShift] = useState("");
 
+  // Global activity threshold
+  const [showThresholdModal, setShowThresholdModal] = useState(false);
+  const [idleMinutes, setIdleMinutes] = useState(10);
+
   // ------------------------
-  // Fetch employees & shifts
+  // Load data
   // ------------------------
   useEffect(() => {
     loadEmployees();
     loadShifts();
+    loadGlobalThreshold();
   }, []);
+
+  const getAuthToken = () => sessionStorage.getItem("access_token");
 
   const loadEmployees = async () => {
     try {
       const data = await getEmployees();
       setEmployees(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       setError("Failed to load employees");
     }
   };
@@ -34,8 +43,23 @@ export default function Employees() {
     try {
       const data = await getShifts();
       setShifts(Array.isArray(data) ? data : []);
-    } catch (err) {
+    } catch {
       console.error("Failed to load shifts");
+    }
+  };
+
+  const loadGlobalThreshold = async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) throw new Error("Authorization token missing");
+
+      const res = await axios.get(`${API_BASE_URL}/activity-threshold`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setIdleMinutes(res.data.idle_time_out);
+    } catch {
+      console.warn("Using default idle timeout");
     }
   };
 
@@ -46,20 +70,41 @@ export default function Employees() {
     if (!selectedEmployee || !selectedShift) return;
 
     try {
+      const token = getAuthToken();
+      if (!token) throw new Error("Authorization token missing");
+
       await axios.put(
-        `http://127.0.0.1:8000/assign-shift/${selectedEmployee.employee_id}`,
+        `${API_BASE_URL}/assign-shift/${selectedEmployee.employee_id}`,
         null,
-        {
-          params: { shift_code: selectedShift },
-        }
+        { params: { shift_code: selectedShift }, headers: { Authorization: `Bearer ${token}` } }
       );
 
       await loadEmployees();
       setSelectedEmployee(null);
       setSelectedShift("");
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Failed to assign shift");
+    }
+  };
+
+  // ------------------------
+  // Save idle threshold
+  // ------------------------
+  const saveGlobalThreshold = async () => {
+    try {
+      const token = getAuthToken();
+      if (!token) throw new Error("Authorization token missing");
+
+      await axios.post(
+        `${API_BASE_URL}/activity-threshold`,
+        { idle_time_out: Number(idleMinutes) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setShowThresholdModal(false);
+      alert("Idle timeout updated successfully");
+    } catch {
+      alert("Failed to save idle timeout");
     }
   };
 
@@ -70,6 +115,13 @@ export default function Employees() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-blue-600">Employees</h2>
+
+        <button
+          onClick={() => setShowThresholdModal(true)}
+          className="bg-gray-800 text-white px-4 py-2 rounded"
+        >
+          Activity Threshold ⚙️
+        </button>
       </div>
 
       {error && <p className="text-red-600 mb-4">{error}</p>}
@@ -134,10 +186,6 @@ export default function Employees() {
               Assign Shift – {selectedEmployee.employee_name}
             </h3>
 
-            <p className="text-sm text-gray-500 mb-3">
-              Current Shift: {selectedEmployee.shift_code || "None"}
-            </p>
-
             <select
               value={selectedShift}
               onChange={(e) => setSelectedShift(e.target.value)}
@@ -146,8 +194,7 @@ export default function Employees() {
               <option value="">Select shift</option>
               {shifts.map((shift) => (
                 <option key={shift.shift_code} value={shift.shift_code}>
-                  {shift.shift_code} (
-                  {formatTime(shift.shift_start)} -{" "}
+                  {shift.shift_code} ({formatTime(shift.shift_start)} -{" "}
                   {formatTime(shift.shift_end)})
                 </option>
               ))}
@@ -158,6 +205,46 @@ export default function Employees() {
               className="w-full bg-blue-600 text-white py-2 rounded"
             >
               Assign Shift
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Global Idle Threshold Modal */}
+      {showThresholdModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white w-full max-w-md rounded-lg p-6 relative">
+            <button
+              onClick={() => setShowThresholdModal(false)}
+              className="absolute top-3 right-3 text-gray-500"
+            >
+              <X />
+            </button>
+
+            <h3 className="text-lg font-semibold mb-4">
+              Global Activity Threshold
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">
+                  Idle Timeout (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={idleMinutes}
+                  onChange={(e) => setIdleMinutes(e.target.value)}
+                  className="w-full border p-2 rounded"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={saveGlobalThreshold}
+              className="w-full mt-5 bg-blue-600 text-white py-2 rounded"
+            >
+              Save Settings
             </button>
           </div>
         </div>

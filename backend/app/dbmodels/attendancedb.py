@@ -85,4 +85,10 @@ class EmployeeBaseSalary(Base):
 
     employee_id = Column(String(50),nullable=False,primary_key=True)
     hourly_salary=Column(Float,nullable=False,default=0)
+    
+class ActivityThreshold(Base):
+    __tablename__ = "activity_threshold"
+    id = Column(Integer, primary_key=True, index=True)
+    idle_time_out = Column(Integer,nullable=False,default=0)
 
+    
