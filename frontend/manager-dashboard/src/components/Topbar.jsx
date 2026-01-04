@@ -10,7 +10,7 @@ export default function Topbar() {
     useEffect(() => {
       const fetchManager = async () => {
         try {
-          const response = await getOvertime()
+          const response = await getManagerDetails()
           setManagerName(response.manager_name)
 
           // optional: cache it
@@ -26,8 +26,9 @@ export default function Topbar() {
      useEffect(() => {
       const fetchOvertimeCount = async () => {
         try {
-          const response = await getManagerDetails()
+          const response = await getOvertime()
           const count = response.length;
+          console.log(count)
           setOvertimeCount(count)
 
           // optional: cache it

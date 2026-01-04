@@ -1,4 +1,4 @@
-from backend.app.ai.constants import EXPECTED_WORKING_DAYS
+from app.ai.constants import EXPECTED_WORKING_DAYS
 
 def predict_next_week_productivity(features):
     base = features["avg_productive_hours"] * EXPECTED_WORKING_DAYS

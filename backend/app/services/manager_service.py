@@ -1,15 +1,15 @@
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
-from backend.app.core.security import hash_password, verify_password, verify_password
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog, Manager, ManagerEmployeeMap
-from backend.app.models.models import ManagerRequest
+from app.core.security import hash_password, verify_password, verify_password
+from app.dbmodels.attendancedb import EmployeeActivityLog, Manager, ManagerEmployeeMap
+from app.models.models import ManagerRequest
 from datetime import date, timedelta
 from sqlalchemy import func
 from collections import defaultdict
-from backend.app.core.token_generator import create_employee_token
-from backend.app.dbmodels.attendancedb import Employee
+from app.core.token_generator import create_employee_token
+from app.dbmodels.attendancedb import Employee
 from typing import List
-from backend.app.models.models import EmployeeInput
+from app.models.models import EmployeeInput
 
 # Service to create a new manager record
 def create_manager_record(db_session, manager_request: ManagerRequest):

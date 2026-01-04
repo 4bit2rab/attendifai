@@ -2,7 +2,7 @@ import pandas as pd
 from typing import List
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import MinMaxScaler
-from backend.app.models.models import EmployeeInput
+from app.models.models import EmployeeInput
 
 def rank_employees_ai(employees: List[EmployeeInput]):
     # Convert input to DataFrame

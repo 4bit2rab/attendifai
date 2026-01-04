@@ -48,6 +48,7 @@ export default function OvertimeApproval() {
       console.error(error);
       alert("Approval failed");
     }
+    window.location.reload();
   };
 
   return (

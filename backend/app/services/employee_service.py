@@ -1,8 +1,8 @@
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
-from backend.app.dbmodels.attendancedb import Employee, EmployeeToken
-from backend.app.models.models import TokenResponse, EmployeeRequest
-from backend.app.core.token_generator import create_employee_token
+from app.dbmodels.attendancedb import Employee, EmployeeToken
+from app.models.models import TokenResponse, EmployeeRequest
+from app.core.token_generator import create_employee_token
 from datetime import datetime
 
 # Service to create a new employee record

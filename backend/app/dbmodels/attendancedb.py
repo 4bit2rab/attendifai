@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Time, Date, ForeignKey, UniqueConstraint,Boolean,Float
 from sqlalchemy.orm import relationship
-from backend.app.db.mySqlConfig import Base
+from app.db.mySqlConfig import Base
 import uuid
 
 # Database model for Employee

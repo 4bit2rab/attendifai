@@ -1,23 +1,23 @@
 from fastapi import FastAPI,Query, Header, HTTPException,Depends,status
-from backend.app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload, ActivityThresholdCreate, ActivityThresholdResponse,MonthlySalaryResponse
+from app.models.models import ManagerRequest, ShiftAssignRequest, ShiftResponse, ProductivityPayload, TokenResponse, TokenRequest, EmployeeRequest, EmployeeResponse, ManagerResponse, ManagerEmployeeMapCreate,ManagerRegisterRequest,AttendanceResponse,OvertimeApprovalPayload, ActivityThresholdCreate, ActivityThresholdResponse,MonthlySalaryResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from backend.app.db.mySqlConfig import sessionLocal,Base, engine
-from backend.app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
-from backend.app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, calculate_total_productivity, create_manager_record, generate_employee_productivity_report, update_manager_password
+from app.db.mySqlConfig import sessionLocal,Base, engine
+from app.services.employee_service import generate_employee_token, create_employee_record, get_all_employees
+from app.services.manager_service import assign_employee_to_manager_record, authenticate_manager, calculate_total_productivity, create_manager_record, generate_employee_productivity_report, update_manager_password
 from typing import List
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager,EmployeeBaseSalary, ActivityThreshold
+from app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager,EmployeeBaseSalary, ActivityThreshold
 from datetime import date
-from backend.app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager
+from app.dbmodels.attendancedb import EmployeeActivityLog, ManagerEmployeeMap,ShiftDetails,Employee,Manager
 from datetime import date, timedelta
-from backend.app.core.security import hash_password
+from app.core.security import hash_password
 from jose import jwt
 from fastapi.middleware.cors import CORSMiddleware
-from backend.app.core.token_generator import get_user_id
-from backend.app.ai.features import extract_employee_features
-from backend.app.ai.predictor import predict_next_week_productivity
-from backend.app.ai.employee_ranking import rank_employees_ai
-from backend.app.models.models import EmployeeInput
+from app.core.token_generator import get_user_id
+from app.ai.features import extract_employee_features
+from app.ai.predictor import predict_next_week_productivity
+from app.ai.employee_ranking import rank_employees_ai
+from app.models.models import EmployeeInput
 
 origins = [
     "http://localhost:5173",  # React dev server
@@ -53,6 +53,13 @@ def get_emp_id(authorization: str = Header(...)):
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid token")
  
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+@app.get("/")
+def root():
+    return {"message": "Backend is running"}
  # ---------------- REGISTRATION ----------------
 @app.post("/generate-token", response_model=TokenResponse)
 def generate_token(
@@ -90,7 +97,17 @@ def record_productivity(
         "message": "Productivity recorded",
     }
 
-
+@app.delete("/sync")
+def delete_sync(
+    emp_id: str,
+    date:date,
+    db: Session = Depends(get_db),
+):
+    sync = db.query(EmployeeActivityLog).filter(EmployeeActivityLog.employee_id == emp_id,EmployeeActivityLog.log_date == date).first()
+    if not sync:
+        raise HTTPException(status_code=404, detail="sync not found")
+    db.delete(sync)
+    db.commit()
 # ---------------- SHIFT ----------------
 @app.post("/create-shift")
 def assign_shift(
@@ -633,3 +650,21 @@ def weekly_productivity_summary(authorization: str = Header(...), db: Session = 
     response = calculate_total_productivity(employees)
 
     return response
+
+@app.get("/hr-salary")
+def get_hr_salary(db: Session = Depends(get_db)):
+    return db.query(EmployeeBaseSalary).all()
+
+
+@app.post("/hr-salary")
+def post_hr_salary(emp_id,salary,db: Session = Depends(get_db)):
+    new_emp_salary = EmployeeBaseSalary(
+                employee_id=emp_id,
+                hourly_salary=salary,
+            )
+
+    db.add(new_emp_salary)
+    db.commit()
+    db.refresh(new_emp_salary)
+
+    return new_emp_salary
