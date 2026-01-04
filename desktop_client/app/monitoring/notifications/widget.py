@@ -43,15 +43,13 @@ class AttendifAIWidget(QObject):
     
     def update_ui(self):
         self.sidebar.update_stats(
-            self.format_time(self.app.productive_seconds),
-            self.format_time(self.app.idle_seconds),
-            self.format_time(self.app.productive_seconds+self.app.idle_seconds)
+            self.app.productive_seconds,
+            self.app.idle_seconds
         )
 
-    @staticmethod
-    def format_time(seconds):
-        m, s = divmod(int(seconds), 60)
-        return f"{m:02d}:{s:02d}"
+    # @staticmethod
+    # def format_time(seconds):
+    #     seconds
     
     # ---------------------------------
     # Sidebar control
