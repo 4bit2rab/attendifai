@@ -639,8 +639,8 @@ def get_activity_threshold(db: Session = Depends(get_db)):
 def weekly_productivity_summary(authorization: str = Header(...), db: Session = Depends(get_db)):
     manager_id = get_user_id(authorization)
     today = date.today()
-    start_of_week = today - timedelta(days=today.weekday())  # Monday
-    end_of_week = start_of_week + timedelta(days=6)
+    start_of_week = today - timedelta(days=7)  # Monday
+    end_of_week = today - timedelta(days=1)
     data = generate_employee_productivity_report(db, manager_id, start_of_week, end_of_week)
 
     employees: List[EmployeeInput] = [
