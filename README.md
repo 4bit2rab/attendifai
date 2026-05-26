@@ -67,7 +67,7 @@ Note: With the provided database setup, use `john@gmail.com` to register.
 
 2. Activate the same virtual environment if not activated.
 
-3. Navigate to the backend folder:  cd frontend/manager-dashboard
+3. Navigate to the frontend folder:  cd frontend/manager-dashboard
 
 4. Install depencies:
     - npm install
